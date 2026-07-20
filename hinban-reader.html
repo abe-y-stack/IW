@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>品番リーダー｜LOHAS material</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
+<style>
+:root{
+  --paper:#F7F6F2; --ink:#1B1B1F; --sub:#6B6B70;
+  --safety:#E85D04; --ok:#1E7F4F; --warn:#B45309; --err:#C0332B;
+  --card:#FFFFFF;
+  --mono:ui-monospace,'SF Mono','Cascadia Mono','Roboto Mono',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic UI',Meiryo,sans-serif;
+  background:var(--paper);color:var(--ink);min-height:100vh;padding-bottom:60px;
+}
+header{
+  background:var(--ink);color:#fff;padding:14px 16px 12px;
+  display:flex;justify-content:space-between;align-items:center;
+  border-bottom:4px solid var(--safety);
+}
+header h1{font-size:1.05rem;font-weight:700;letter-spacing:.06em}
+header .sub{font-size:.62rem;color:#B9B9BE;letter-spacing:.14em;margin-top:2px}
+#btnSettings{background:none;border:1.5px solid #55555C;color:#fff;border-radius:8px;padding:7px 12px;font-size:.8rem;cursor:pointer}
+main{max-width:680px;margin:0 auto;padding:16px 14px}
+
+.inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.big-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  padding:20px 8px;border:2px solid var(--ink);border-radius:12px;background:var(--card);
+  cursor:pointer;font-weight:700;font-size:.95rem;box-shadow:3px 3px 0 var(--ink);
+  transition:transform .06s,box-shadow .06s;color:var(--ink);
+}
+.big-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.big-btn .ico{font-size:1.6rem;line-height:1}
+.big-btn.camera{background:var(--safety);color:#fff}
+.paste-wrap{margin-bottom:14px}
+.paste-wrap label{font-size:.75rem;font-weight:700;color:var(--sub);letter-spacing:.08em;display:block;margin-bottom:5px}
+textarea#txtInput{
+  width:100%;min-height:56px;padding:12px;font-family:var(--mono);font-size:.92rem;
+  border:2px solid var(--ink);border-radius:10px;background:var(--card);resize:vertical;color:var(--ink);
+}
+textarea#txtInput:focus{outline:3px solid var(--safety);outline-offset:1px}
+input[type=file]{display:none}
+
+#progress{display:none;margin:10px 0;padding:12px 14px;border:2px dashed var(--sub);border-radius:10px;background:#fff;font-size:.85rem}
+#progress .bar{height:8px;background:#EDEDEA;border-radius:4px;margin-top:8px;overflow:hidden}
+#progress .bar>div{height:100%;width:0;background:var(--safety);transition:width .2s}
+#preview{display:none;width:100%;border:2px solid var(--ink);border-radius:10px;margin:8px 0}
+
+#result{display:none;margin-top:6px}
+.tag-card{background:var(--card);border:2.5px solid var(--ink);border-radius:14px;overflow:hidden;box-shadow:5px 5px 0 rgba(27,27,31,.85)}
+.tag-head{background:var(--ink);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tag-head .lbl{font-size:.62rem;letter-spacing:.2em;color:#B9B9BE}
+.type-badge{font-size:.72rem;font-weight:800;background:var(--safety);padding:3px 10px;border-radius:999px}
+.tag-code{font-family:var(--mono);font-size:.9rem;font-weight:700;padding:10px 14px;background:#FFF8EF;border-bottom:2px dashed var(--ink);word-break:break-all;line-height:1.5}
+.hero-row{display:grid;grid-template-columns:1fr 1.6fr;border-bottom:2px solid var(--ink)}
+.hero-cell{padding:14px 12px;text-align:center}
+.hero-cell+.hero-cell{border-left:2px solid var(--ink)}
+.hero-cell .k{font-size:.68rem;font-weight:700;letter-spacing:.18em;color:var(--sub)}
+.hero-qty{font-size:2.6rem;font-weight:800;line-height:1.15}
+.hero-qty input{width:2.4em;font:inherit;text-align:center;border:none;border-bottom:3px solid var(--safety);background:none}
+.hero-big{font-size:1.9rem;font-weight:800;margin-top:4px}
+.hw-chip{display:inline-flex;align-items:center;gap:10px;margin-top:6px;padding:8px 16px;border:2px solid var(--ink);border-radius:999px;font-weight:800;font-size:1.2rem}
+.hw-swatch{width:24px;height:24px;border-radius:50%;border:2px solid var(--ink);flex:none}
+.hw-trio{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:2px solid var(--ink)}
+.hw-trio .t-cell{padding:10px 6px;text-align:center;border-left:1.5px solid #DDDCD6}
+.hw-trio .t-cell:first-child{border-left:none}
+.hw-trio .k{font-size:.62rem;font-weight:700;letter-spacing:.1em;color:var(--sub)}
+.hw-trio .v{font-size:.95rem;font-weight:800;margin-top:3px;display:flex;align-items:center;justify-content:center;gap:6px}
+.hw-trio .sw{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--ink);flex:none}
+.spec-grid{display:grid;grid-template-columns:1fr 1fr}
+.spec{padding:11px 13px;border-bottom:1.5px solid #DDDCD6}
+.spec:nth-child(odd){border-right:1.5px solid #DDDCD6}
+.spec .k{font-size:.66rem;font-weight:700;letter-spacing:.15em;color:var(--sub);margin-bottom:3px}
+.spec .v{font-size:1rem;font-weight:700}
+.spec .v .code{font-family:var(--mono);font-size:.75rem;color:var(--sub);font-weight:600;margin-left:5px}
+.spec.wide{grid-column:1/-1;border-right:none}
+.unknown{color:var(--warn)}
+.alerts{padding:0 12px}
+.alert{margin:10px 0;padding:11px 13px;border-radius:10px;font-size:.87rem;font-weight:700;line-height:1.55}
+.alert.err{background:#FDECEA;border:2px solid var(--err);color:var(--err)}
+.alert.warn{background:#FEF3E2;border:2px solid var(--warn);color:var(--warn)}
+.alert.ok{background:#E8F5EE;border:2px solid var(--ok);color:var(--ok)}
+.tag-foot{padding:10px 14px 14px;display:flex;gap:10px}
+.mini-btn{flex:1;padding:11px;border:2px solid var(--ink);border-radius:10px;background:#fff;font-weight:700;font-size:.85rem;cursor:pointer;color:var(--ink)}
+.mini-btn:active{background:#EFEEE9}
+
+#history{margin-top:22px}
+#history h2{font-size:.75rem;letter-spacing:.18em;color:var(--sub);margin-bottom:8px}
+.hist-item{background:#fff;border:1.5px solid #CFCEC8;border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:.8rem;cursor:pointer;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.hist-item .c{font-family:var(--mono);font-weight:700;word-break:break-all}
+.hist-item .t{color:var(--sub);flex:none;font-size:.7rem}
+
+#settings{display:none;position:fixed;inset:0;background:rgba(27,27,31,.5);z-index:50;overflow-y:auto;padding:20px 12px 40px}
+.set-panel{max-width:680px;margin:0 auto;background:var(--paper);border-radius:14px;border:2px solid var(--ink);overflow:hidden}
+.set-head{background:var(--ink);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:2}
+.set-head h2{font-size:1rem}
+.set-body{padding:14px}
+.map-block{margin-bottom:18px;background:#fff;border:1.5px solid #CFCEC8;border-radius:10px;overflow:hidden}
+.map-block h3{font-size:.82rem;padding:9px 12px;background:#EFEEE9;border-bottom:1.5px solid #CFCEC8}
+.map-row{display:flex;gap:6px;padding:6px 10px;align-items:center;border-bottom:1px solid #EFEEE9}
+.map-row input{padding:8px;border:1.5px solid #CFCEC8;border-radius:7px;font-size:.85rem}
+.map-row input.key{width:72px;font-family:var(--mono);font-weight:700;text-align:center}
+.map-row input.val{flex:1}
+.map-row .del{border:none;background:none;color:var(--err);font-size:1.05rem;cursor:pointer;padding:4px 6px}
+.map-add{width:100%;padding:9px;border:none;background:none;color:var(--safety);font-weight:700;font-size:.82rem;cursor:pointer}
+.set-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.set-actions .mini-btn.primary{background:var(--safety);color:#fff}
+.set-note{font-size:.72rem;color:var(--sub);line-height:1.6;margin-top:12px}
+.lang-opt{display:flex;align-items:center;gap:8px;font-size:.85rem;background:#fff;border:1.5px solid #CFCEC8;border-radius:10px;padding:11px 12px;margin-bottom:16px}
+.lang-opt input{width:18px;height:18px}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>品番リーダー</h1>
+    <div class="sub">INTERIOR WINDOW ＋ 建具 ／ LOHAS material</div>
+  </div>
+  <button id="btnSettings">⚙ 対応表</button>
+</header>
+
+<main>
+  <div class="inputs">
+    <button class="big-btn camera" id="btnCamera"><span class="ico">📷</span>カメラで読み取る</button>
+    <button class="big-btn" id="btnFile"><span class="ico">🖼</span>画像を選ぶ</button>
+  </div>
+  <input type="file" id="fileCamera" accept="image/*" capture="environment">
+  <input type="file" id="fileGallery" accept="image/*">
+
+  <div class="paste-wrap">
+    <label>品番を貼り付け・入力（窓／建具を自動判別）</label>
+    <textarea id="txtInput" placeholder="(HF)WS11-PM(1Y)-077004000160-SD　または　(HF)SDD0731-K712S-LAW(2N2)L" autocapitalize="characters"></textarea>
+  </div>
+
+  <div id="progress"><span id="progText">読み取り中…</span><div class="bar"><div id="progBar"></div></div></div>
+  <img id="preview" alt="読み取り画像">
+  <div id="result"></div>
+  <div id="history"><h2>読み取り履歴（この画面のみ）</h2><div id="histList"></div></div>
+</main>
+
+<div id="settings">
+  <div class="set-panel">
+    <div class="set-head">
+      <h2>対応表の編集</h2>
+      <button id="btnCloseSettings" class="mini-btn" style="flex:none;background:#fff">閉じる</button>
+    </div>
+    <div class="set-body">
+      <label class="lang-opt">
+        <input type="checkbox" id="chkJpn">
+        <span>数量など日本語もOCRで読み取る<br><small style="color:var(--sub)">初回のみ日本語データを追加ダウンロードします</small></span>
+      </label>
+      <div id="mapBlocks"></div>
+      <div class="set-actions">
+        <button class="mini-btn primary" id="btnSaveMaps">保存する</button>
+        <button class="mini-btn" id="btnResetMaps">初期値に戻す</button>
+        <button class="mini-btn" id="btnExport">書き出し(JSON)</button>
+        <button class="mini-btn" id="btnImport">読み込み(JSON)</button>
+      </div>
+      <input type="file" id="fileImport" accept=".json">
+      <p class="set-note">※（推定）と付いている項目は、実際の見積書と照合して確定したらこの画面で修正してください。チームで揃えるときは「書き出し」したJSONを共有して各端末で「読み込み」してください。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================
+   対応表（初期値）
+   窓：カタログ2026年版より確定
+   建具：カタログ・見積依頼シート・メール記載より（一部推定）
+===================================================== */
+const DEFAULT_MAPS = {
+  prefix:  {label:'構成（共通）', data:{ "HF":"セット（本体＋枠）", "H":"本体のみ", "F":"枠のみ" }},
+  parts:   {label:'窓：パーツ記号', data:{ "S":"セット品番", "T":"本体品番", "W":"枠品番" }},
+  wood:    {label:'樹種（共通）', data:{ "P":"パイン", "J":"国産杉", "A":"アッシュ" }},
+  finish:  {label:'表面仕上げ・塗装（共通）', data:{ "M":"無塗装", "G":"クリア", "T":"ナチュラルオーク", "B":"ミディアムブラウン", "D":"ダークブラウン", "W":"ホワイト", "J":"ベージュブラウン", "C":"シナモンブラウン", "H":"マホガニー", "A":"アンティークベージュ", "E":"エボニー", "Y":"チャコールグレー", "L":"ターコイズブルー", "V":"ヴィンテージグリーン", "●":"特別色（色番号併記）", "*":"特別色・未定" }},
+  hwColor: {label:'窓：金物色', data:{ "1":"ゴールド", "2":"シルバー", "3":"ブロンズ", "4":"ブラック", "7":"アンバー", "N":"なし（FIX窓等）", "*":"未定" }},
+  hwType:  {label:'窓：金物種類・レール色（2文字目）', data:{ "Y":"標準金物", "N":"なし", "2":"レール:シルバー（引違系）", "3":"レール:ブロンズ（引違系）", "*":"未定" }},
+  design:  {label:'窓：窓デザイン', data:{ "S":"S", "T":"T", "A":"A", "M":"M", "G":"ガラス", "O":"押し縁仕様", "1":"片面木格子", "2":"両面木格子", "3":"片面アイアン（窓厚36mm）", "K":"中框" }},
+  winType: {label:'窓：窓仕様（開き方）', data:{ "X":"FIX窓", "N":"FIX窓（框なし押縁）", "D":"引違窓", "Q":"四枚引違窓", "R":"横軸回転窓", "V":"縦軸回転窓", "S":"横辷り出し窓", "P":"縦辷り出し窓", "C":"観音窓", "J":"片開き窓", "H":"上げ下げ窓" }},
+  glass:   {label:'ガラス種（共通）', data:{ "A-2":"チェッカーガラス", "A-5":"透明ガラス", "A-6":"型ガラス", "M-1":"アクリスター 透明", "M-2":"アクリスター チェッカー", "M-3":"アクリスター モール" }},
+  frameW:  {label:'窓：枠巾（mm→記号）', data:{ "90":"N", "110":"S", "160":"L" }},
+  /* ---------- 建具 ---------- */
+  doorSeries:{label:'建具：扉デザインシリーズ', data:{ "SD":"Standard", "TD":"Traditional", "AD":"Authentic", "MD":"Modern", "DD":"Design", "FD":"Flat", "ID":"Iron" }},
+  doorType: {label:'建具：建具種類（DW番号下2桁）', data:{ "31":"片開き戸（DW31）", "42":"アウトセット上吊片引き（DW42）" }},
+  doorFrameW:{label:'建具：枠巾記号', data:{ "N":"90mm", "S":"110mm", "L":"160mm", "*":"未定" }},
+  doorSizeType:{label:'建具：寸法接頭辞（推定）', data:{ "K":"開き戸 扉寸法（規格/特注共通）", "H":"引戸 扉寸法（推定）" }},
+  doorH:   {label:'建具：扉高記号（推定）', data:{ "S":"2000mm" }},
+  lever:   {label:'建具：レバー・引き手', data:{ "1":"ゴールド", "2":"シルバー", "3":"ブロンズ", "4":"ブラック", "L":"標準レバー加工のみ", "N":"なし", "O":"オプション", "*":"未定" }},
+  lock:    {label:'建具：表示錠', data:{ "J":"表示錠あり", "N":"なし", "*":"未定" }},
+  hinge:   {label:'建具：丁番', data:{ "2":"シルバー", "4":"ブラック", "N":"なし", "C":"標準丁番加工のみ", "*":"未定" }},
+  hand:    {label:'建具：吊元・勝手', data:{ "L":"左吊元（L）", "R":"右吊元（R）" }},
+  doorHead:{label:'建具：先頭記号（推定）', data:{ "S":"セット品番（推定）", "A":"アウトセット（推定）" }}
+};
+
+/* 窓仕様ごとの選択可能な金物色（カタログ⑦金物欄より） */
+const HW_ALLOWED = {
+  "D":["1","2","3","4"], "Q":["1","2","3","4"],
+  "H":["1","2"],
+  "C":["1","2","4","7"], "S":["1","2","4","7"],
+  "P":["1","2","4","7"], "R":["1","2","4","7"],
+  "V":["1","2","4","7"], "J":["1","2","4","7"]
+};
+const SWATCH = { "1":"#C9A227", "2":"#BFC3C7", "3":"#8C6239", "4":"#26262A", "7":"#B87333" };
+
+let MAPS = loadMaps();
+function loadMaps(){
+  try{
+    const s = localStorage.getItem('hinbanMaps_v2');
+    if(s){
+      const saved = JSON.parse(s);
+      const m = JSON.parse(JSON.stringify(DEFAULT_MAPS));
+      for(const k in m){ if(saved[k]) m[k].data = saved[k]; }
+      return m;
+    }
+  }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_MAPS));
+}
+function saveMaps(){
+  try{
+    const out = {};
+    for(const k in MAPS) out[k] = MAPS[k].data;
+    localStorage.setItem('hinbanMaps_v2', JSON.stringify(out));
+    return true;
+  }catch(e){ return false; }
+}
+
+/* =====================================================
+   正規化・パース
+===================================================== */
+function normalize(raw){
+  let s = raw.toUpperCase();
+  s = s.replace(/[Ａ-Ｚ０-９（）－ー―‐＊]/g, c=>{
+    const map = {'（':'(', '）':')', '－':'-', 'ー':'-', '―':'-', '‐':'-', '＊':'*'};
+    if(map[c]) return map[c];
+    return String.fromCharCode(c.charCodeAt(0)-0xFEE0);
+  });
+  return s;
+}
+function fixDigits(seg){
+  return seg.replace(/O/g,'0').replace(/Q/g,'0').replace(/D/g,'0')
+            .replace(/[IL|]/g,'1').replace(/B/g,'8').replace(/S/g,'5').replace(/Z/g,'2');
+}
+
+/* ---- 窓（インテリアウィンドウ） ---- */
+function parseWindow(rawText){
+  const s = normalize(rawText);
+  const re = /(?:\(\s*特\s*\)\s*)?\(?\s*(HF|H|F)\s*\)?\s*W\s*([A-Z])\s*(\d{1,2})\s*-\s*([A-Z])\s*([A-Z●*])\s*\(?\s*([A-Z0-9*])\s*([A-Z0-9*])\s*\)?\s*-\s*([0-9OQDILBSZ|*]{10,14})\s*-\s*([A-Z0-9])\s*([A-Z])(?:[\s　]*([AM]\s*-\s*\d))?/;
+  const m = s.match(re);
+  if(!m) return null;
+  const seg = fixDigits(m[8]).replace(/[^0-9*]/g,'');
+  let w='?',h='?',f='?';
+  if(seg.length===12){
+    const chunk = i=>{ const c=seg.slice(i,i+4); return /\*/.test(c)?'未定':String(parseInt(c,10)); };
+    w=chunk(0); h=chunk(4); f=chunk(8);
+  }
+  return {kind:'window', raw:m[0].trim(), tokFlag:/\(\s*特\s*\)/.test(s),
+    prefix:m[1], parts:m[2], layout:m[3],
+    wood:m[4], finish:m[5], hwColor:m[6], hwType:m[7], w,h,f, digitsRaw:m[8],
+    design:m[9], winType:m[10], glass:m[11]?m[11].replace(/\s/g,''):null};
+}
+
+/* ---- 建具（ドア・引戸） ----
+   例1: (HF)SDD0731-K712S-LAW(2N2)L
+   例2: (特)(H)A-ID10-H****-AB(1HN)R A-6(型ガラス)
+*/
+function parseDoor(rawText){
+  const s = normalize(rawText);
+  const re = /(\(\s*特\s*\))?\s*\(?\s*(HF|H|F)\s*\)?\s*([A-Z])?\s*-?\s*(SD|TD|AD|MD|DD|FD|ID)\s*-?\s*(\d{2})\s*(\d{2})?\s*-\s*([A-Z]?[\d*OQI]{3,10}[A-Z]?)\s*-\s*([A-Z●*]{2,3})\s*\(\s*([A-Z0-9*]{2,3})\s*\)\s*([LR])?(?:[\s　]*\(\s*((?:特別色|L\d+)[^)]*)\s*\))?(?:[\s　]*([AM]\s*-\s*\d))?/;
+  const m = s.match(re);
+  if(!m) return null;
+
+  // 樹種ブロック: 3文字=枠巾+樹種+塗装 / 2文字=樹種+塗装（本体のみ等）
+  const wf = m[8];
+  let frameW=null, wood, finish;
+  if(wf.length===3){ frameW=wf[0]; wood=wf[1]; finish=wf[2]; }
+  else { wood=wf[0]; finish=wf[1]; }
+
+  // サイズブロック: K712S=扉幅712×扉高S / K****=未定 / H08002050等
+  const sizeRaw = m[7];
+  let sizeType=null, doorW='', doorH='', sizeNote='';
+  const st = sizeRaw[0];
+  if(/[A-Z]/.test(st)) sizeType = st;
+  const body = sizeRaw.slice(/[A-Z]/.test(st)?1:0);
+  if(/\*/.test(body)){ sizeNote='サイズ未定'; }
+  else{
+    const tail = body.slice(-1);
+    const hasTail = /[A-Z]/.test(tail);
+    const d = fixDigits(hasTail ? body.slice(0,-1) : body).replace(/[^0-9]/g,'');
+    if(hasTail){ doorW = String(parseInt(d,10)||''); doorH = tail; }
+    else if(d.length>=7){ doorW=String(parseInt(d.slice(0,4),10)); doorH=String(parseInt(d.slice(4,8),10))+'mm'; }
+    else if(d.length>=3){ doorW=String(parseInt(d,10)); }
+  }
+
+  // 金物3桁
+  const hw = m[9].split('');
+
+  // 吊元: 「L/R未定」表記の検出
+  let hand = m[10]||null, handNote=null;
+  if(/\)\s*[LR]?\s*\/\s*[LR]/.test(s)){ hand=null; handNote='L/R未定'; }
+
+  return {kind:'door', raw:m[0].trim(),
+    tokFlag:!!m[1], prefix:m[2], head:m[3]||null,
+    series:m[4], designNo:m[5], doorType:m[6]||null,
+    sizeRaw, sizeType, doorW, doorH, sizeNote,
+    frameW, wood, finish,
+    hw1:hw[0]||null, hw2:hw[1]||null, hw3:hw[2]||null,
+    hand, handNote, colorNote:m[11]||null,
+    glass:m[12]?m[12].replace(/\s/g,''):null};
+}
+
+function parseAny(text){
+  return parseWindow(text) || parseDoor(text);
+}
+function findQty(text){
+  const s = normalize(text);
+  let m = s.match(/数量[:：\s]*([0-9]{1,3})/);
+  if(m) return {qty:m[1]};
+  m = s.match(/([0-9]{1,3})\s*(セット|SET|台|本|枚|ｾｯﾄ)/);
+  if(m) return {qty:m[1]};
+  return null;
+}
+
+/* =====================================================
+   表示
+===================================================== */
+const $ = id => document.getElementById(id);
+function look(mapKey, code){
+  if(code===null || code===undefined || code==='') return {text:'－', known:true};
+  const v = MAPS[mapKey].data[code];
+  return v !== undefined ? {text:v, known:true} : {text:'未登録', known:false};
+}
+function specHTML(label, code, mapKey, wide){
+  const r = look(mapKey, code);
+  return '<div class="spec'+(wide?' wide':'')+'"><div class="k">'+label+'</div>'+
+    '<div class="v '+(r.known?'':'unknown')+'">'+r.text+
+    (code?'<span class="code">'+code+'</span>':'')+'</div></div>';
+}
+function swatchDot(code){
+  return SWATCH[code] ? '<span class="sw" style="background:'+SWATCH[code]+'"></span>' : '';
+}
+let lastParsed = null;
+
+function collectUnknowns(checks){
+  return checks.filter(([k,c])=> c && !look(k,c).known).map(([k,c])=>MAPS[k].label.replace(/^(窓|建具)：/,'')+':'+c);
+}
+
+function render(parsed, qtyInfo, sourceLabel){
+  lastParsed = parsed;
+  if(parsed.kind==='window') renderWindow(parsed, qtyInfo, sourceLabel);
+  else renderDoor(parsed, qtyInfo, sourceLabel);
+  $('result').style.display='block';
+  $('result').scrollIntoView({behavior:'smooth', block:'start'});
+  addHistory(parsed.raw);
+}
+
+function alertsHTML(alerts){
+  return '<div class="alerts">'+alerts.map(a=>'<div class="alert '+a.cls+'">'+a.msg+'</div>').join('')+'</div>';
+}
+function footHTML(){
+  return '<div class="tag-foot"><button class="mini-btn" onclick="copyResult()">📋 結果をコピー</button><button class="mini-btn" onclick="clearResult()">✕ クリア</button></div>';
+}
+function qtyCell(qtyInfo){
+  const q = qtyInfo?qtyInfo.qty:'';
+  return '<div class="hero-cell"><div class="k">数量</div>'+
+    '<div class="hero-qty"><input id="qtyInput" value="'+q+'" inputmode="numeric" placeholder="－"></div>'+
+    '<div style="font-size:.65rem;color:var(--sub);margin-top:2px">'+(qtyInfo?'ラベルから読み取り':'ラベルの数量を入力')+'</div></div>';
+}
+
+/* ---- 窓カード ---- */
+function renderWindow(p, qtyInfo, src){
+  const alerts = [];
+  const hw = look('hwColor', p.hwColor);
+  const allowed = HW_ALLOWED[p.winType];
+  if(allowed && /^[0-9]$/.test(p.hwColor) && !allowed.includes(p.hwColor)){
+    const names = allowed.map(c=>look('hwColor',c).text).join('・');
+    alerts.push({cls:'err', msg:'⚠ '+look('winType',p.winType).text+'に「'+hw.text+'」の設定はありません（選択可：'+names+'）。品番を確認してください。'});
+  }
+  const unknowns = collectUnknowns([['prefix',p.prefix],['parts',p.parts],['wood',p.wood],['finish',p.finish],['hwColor',p.hwColor],['hwType',p.hwType],['design',p.design],['winType',p.winType],['glass',p.glass]]);
+  if(unknowns.length) alerts.push({cls:'warn', msg:'未登録の記号があります → '+unknowns.join(' / ')+'<br>「⚙対応表」から追加できます。'});
+  if(p.w==='?') alerts.push({cls:'warn', msg:'寸法の桁数が読み取れませんでした（'+p.digitsRaw+'）。撮り直すか手入力してください。'});
+  if(p.w==='未定'||p.h==='未定'||p.f==='未定') alerts.push({cls:'warn', msg:'寸法に「未定（****）」が含まれています。出荷前に確定寸法を確認してください。'});
+  if(!alerts.length) alerts.push({cls:'ok', msg:'✓ 記号はすべて登録済みです。現物と照合してください。'});
+
+  const frameSym = MAPS.frameW.data[p.f] ? '（'+MAPS.frameW.data[p.f]+'）' : '';
+  $('result').innerHTML =
+  '<div class="tag-card">'+
+    '<div class="tag-head"><span class="lbl">SHIPPING CHECK</span><span class="type-badge">室内窓'+(p.tokFlag?'・特注':'')+'</span></div>'+
+    '<div class="tag-code">'+p.raw+'</div>'+
+    '<div class="hero-row">'+qtyCell(qtyInfo)+
+      '<div class="hero-cell"><div class="k">金物</div>'+
+        '<div class="hw-chip"><span class="hw-swatch" style="background:'+(SWATCH[p.hwColor]||'#999')+'"></span>'+hw.text+'</div>'+
+        '<div style="font-size:.72rem;color:var(--sub);margin-top:5px">'+look('hwType',p.hwType).text+'<span class="code" style="font-family:var(--mono)">（'+p.hwColor+p.hwType+'）</span></div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="spec-grid">'+
+      specHTML('窓仕様', p.winType, 'winType')+
+      '<div class="spec"><div class="k">サイズ（枠外）</div><div class="v">'+p.w+' × '+p.h+'<span class="code">巾×高さmm</span></div></div>'+
+      '<div class="spec"><div class="k">枠巾</div><div class="v">'+p.f+'mm '+frameSym+'</div></div>'+
+      specHTML('構成', p.prefix, 'prefix')+
+      specHTML('樹種', p.wood, 'wood')+
+      specHTML('表面仕上げ', p.finish, 'finish')+
+      specHTML('窓デザイン', p.design, 'design')+
+      (p.glass ? specHTML('ガラス', p.glass, 'glass') : '<div class="spec"><div class="k">ガラス</div><div class="v" style="color:var(--sub)">記載なし</div></div>')+
+      '<div class="spec wide"><div class="k">窓配置</div><div class="v">'+p.layout+'<span class="code">パーツ:'+p.parts+'（'+look('parts',p.parts).text+'）</span></div></div>'+
+    '</div>'+alertsHTML(alerts)+footHTML()+
+  '</div>';
+}
+
+/* ---- 建具カード ---- */
+function renderDoor(p, qtyInfo, src){
+  const alerts = [];
+  const isHinged = p.doorType==='31' || (!p.doorType && !p.head); // 片開き系
+  const hwLabels = isHinged ? ['レバー','表示錠','丁番'] : ['引き手・レバー','金物②','金物③'];
+  const hwMaps   = isHinged ? ['lever','lock','hinge'] : ['lever',null,null];
+
+  function hwCell(label, code, mapKey){
+    if(code===null) return '<div class="t-cell"><div class="k">'+label+'</div><div class="v" style="color:var(--sub)">－</div></div>';
+    let text, known=true;
+    if(mapKey){ const r=look(mapKey,code); text=r.text; known=r.known; }
+    else { text='記号 '+code; known=true; }
+    return '<div class="t-cell"><div class="k">'+label+'</div><div class="v '+(known?'':'unknown')+'">'+swatchDot(code)+text+'</div>'+
+      '<div style="font-size:.62rem;color:var(--sub);font-family:var(--mono)">'+code+'</div></div>';
+  }
+
+  const unknowns = collectUnknowns([['prefix',p.prefix],['doorSeries',p.series],['doorType',p.doorType],['wood',p.wood],['finish',p.finish],['glass',p.glass],['doorFrameW',p.frameW],['doorHead',p.head]]);
+  if(isHinged){
+    [['lever',p.hw1],['lock',p.hw2],['hinge',p.hw3]].forEach(([k,c])=>{ if(c && !look(k,c).known) unknowns.push(MAPS[k].label.replace(/^建具：/,'')+':'+c); });
+  }else if(p.hw2||p.hw3){
+    alerts.push({cls:'warn', msg:'引戸系の金物記号（'+(p.hw1||'')+(p.hw2||'')+(p.hw3||'')+'）は2・3桁目の意味が未確定です。実物の見積書と照合して「⚙対応表」を更新してください。'});
+  }
+  if(unknowns.length) alerts.push({cls:'warn', msg:'未登録の記号があります → '+unknowns.join(' / ')+'<br>「⚙対応表」から追加できます。'});
+  if(p.sizeNote) alerts.push({cls:'warn', msg:'サイズが「未定（****）」の品番です。出荷前に寸法確定を確認してください。'});
+  if(!alerts.length) alerts.push({cls:'ok', msg:'✓ 記号はすべて登録済みです。現物と照合してください。'});
+
+  const handTxt = p.handNote ? p.handNote : (p.hand ? look('hand',p.hand).text : '記載なし');
+  if(p.handNote) alerts.unshift({cls:'err', msg:'⚠ 吊元・勝手（L/R）が未定です。出荷前に必ず確認してください。'});
+  let sizeTxt = '';
+  if(p.sizeNote) sizeTxt = p.sizeNote;
+  else{
+    sizeTxt = (p.doorW?('W'+p.doorW):'?');
+    if(p.doorH){
+      const dh = MAPS.doorH.data[p.doorH];
+      sizeTxt += ' × H' + (dh ? dh+'（'+p.doorH+'）' : p.doorH);
+    }
+  }
+  const stype = p.sizeType ? look('doorSizeType',p.sizeType).text : '';
+
+  $('result').innerHTML =
+  '<div class="tag-card">'+
+    '<div class="tag-head"><span class="lbl">SHIPPING CHECK</span><span class="type-badge" style="background:#1E5F8F">建具'+(p.tokFlag?'・特注':'')+'</span></div>'+
+    '<div class="tag-code">'+p.raw+'</div>'+
+    '<div class="hero-row">'+qtyCell(qtyInfo)+
+      '<div class="hero-cell"><div class="k">吊元・勝手</div>'+
+        '<div class="hero-big" style="color:'+(p.handNote?'var(--err)':(p.hand?'var(--ink)':'var(--sub)'))+'">'+handTxt+'</div>'+
+        '<div style="font-size:.68rem;color:var(--sub);margin-top:3px">左右間違い注意</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="hw-trio">'+
+      hwCell(hwLabels[0], p.hw1, hwMaps[0])+
+      hwCell(hwLabels[1], p.hw2, hwMaps[1])+
+      hwCell(hwLabels[2], p.hw3, hwMaps[2])+
+    '</div>'+
+    '<div class="spec-grid">'+
+      '<div class="spec"><div class="k">扉デザイン</div><div class="v '+(look('doorSeries',p.series).known?'':'unknown')+'">'+look('doorSeries',p.series).text+' '+p.designNo+'<span class="code">'+p.series+p.designNo+'</span></div></div>'+
+      (p.doorType ? specHTML('建具種類', p.doorType, 'doorType') : '<div class="spec"><div class="k">建具種類</div><div class="v" style="color:var(--sub)">記載なし</div></div>')+
+      '<div class="spec"><div class="k">扉サイズ '+(stype?('<span style="color:var(--warn)">'+stype+'</span>'):'')+'</div><div class="v">'+sizeTxt+'<span class="code">'+p.sizeRaw+'</span></div></div>'+
+      (p.frameW ? specHTML('枠巾', p.frameW, 'doorFrameW') : '<div class="spec"><div class="k">枠巾</div><div class="v" style="color:var(--sub)">－（本体のみ）</div></div>')+
+      specHTML('構成', p.prefix, 'prefix')+
+      specHTML('樹種', p.wood, 'wood')+
+      specHTML('塗装', p.finish, 'finish')+
+      (p.glass ? specHTML('ガラス', p.glass, 'glass') : '<div class="spec"><div class="k">ガラス</div><div class="v" style="color:var(--sub)">記載なし</div></div>')+
+      (p.head ? specHTML('先頭記号', p.head, 'doorHead', true) : '')+
+      (p.colorNote ? '<div class="spec wide"><div class="k">色番号・備考</div><div class="v" style="color:var(--warn)">'+p.colorNote+'</div></div>' : '')+
+    '</div>'+alertsHTML(alerts)+footHTML()+
+  '</div>';
+}
+
+function copyResult(){
+  if(!lastParsed) return;
+  const p = lastParsed;
+  const qty = $('qtyInput') ? $('qtyInput').value : '';
+  let lines;
+  if(p.kind==='window'){
+    lines = [
+      '【室内窓】'+p.raw,
+      '数量: '+(qty||'未入力'),
+      '金物: '+look('hwColor',p.hwColor).text+'（'+look('hwType',p.hwType).text+'）',
+      '窓仕様: '+look('winType',p.winType).text,
+      'サイズ: '+p.w+'×'+p.h+'mm 枠巾'+p.f+'mm',
+      '構成: '+look('prefix',p.prefix).text,
+      '樹種: '+look('wood',p.wood).text+' / 仕上げ: '+look('finish',p.finish).text,
+      'デザイン: '+look('design',p.design).text + (p.glass?' / ガラス: '+look('glass',p.glass).text:'')
+    ];
+  }else{
+    lines = [
+      '【建具'+(p.tokFlag?'・特注':'')+'】'+p.raw,
+      '数量: '+(qty||'未入力'),
+      '吊元・勝手: '+(p.handNote?p.handNote:(p.hand?look('hand',p.hand).text:'記載なし')),
+      '金物: '+(p.hw1||'')+(p.hw2||'')+(p.hw3||''),
+      'デザイン: '+look('doorSeries',p.series).text+' '+p.designNo + (p.doorType?' / '+look('doorType',p.doorType).text:''),
+      'サイズ: '+p.sizeRaw + (p.frameW?' / 枠巾: '+look('doorFrameW',p.frameW).text:'') + (p.colorNote?' / 備考: '+p.colorNote:''),
+      '構成: '+look('prefix',p.prefix).text,
+      '樹種: '+look('wood',p.wood).text+' / 塗装: '+look('finish',p.finish).text + (p.glass?' / ガラス: '+look('glass',p.glass).text:'')
+    ];
+  }
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>alert('コピーしました'));
+}
+function clearResult(){
+  $('result').style.display='none';
+  $('preview').style.display='none';
+  $('txtInput').value='';
+  lastParsed=null;
+}
+
+const hist = [];
+function addHistory(code){
+  if(hist[0] && hist[0].code===code) return;
+  hist.unshift({code, time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})});
+  if(hist.length>15) hist.pop();
+  $('histList').innerHTML = hist.map(h=>
+    '<div class="hist-item" onclick="reparse(\''+h.code.replace(/'/g,"\\'")+'\')"><span class="c">'+h.code+'</span><span class="t">'+h.time+'</span></div>'
+  ).join('');
+}
+function reparse(code){
+  const p = parseAny(code);
+  if(p) render(p, null, '履歴');
+}
+
+let debounce;
+$('txtInput').addEventListener('input', e=>{
+  clearTimeout(debounce);
+  debounce = setTimeout(()=>{
+    const p = parseAny(e.target.value);
+    if(p) render(p, findQty(e.target.value), 'テキスト入力');
+  }, 350);
+});
+
+/* ===== OCR ===== */
+$('btnCamera').onclick = ()=> $('fileCamera').click();
+$('btnFile').onclick   = ()=> $('fileGallery').click();
+$('fileCamera').addEventListener('change', e=> handleImage(e.target.files[0], 'カメラ'));
+$('fileGallery').addEventListener('change', e=> handleImage(e.target.files[0], '画像'));
+
+async function handleImage(file, label){
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = async ()=>{
+    const scale = Math.min(2, 1800/Math.max(img.width,1));
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(img.width*Math.max(scale,1));
+    cv.height = Math.round(img.height*Math.max(scale,1));
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    const d = ctx.getImageData(0,0,cv.width,cv.height);
+    const px = d.data;
+    for(let i=0;i<px.length;i+=4){
+      let g = 0.299*px[i]+0.587*px[i+1]+0.114*px[i+2];
+      g = Math.max(0, Math.min(255, (g-128)*1.35+128));
+      px[i]=px[i+1]=px[i+2]=g;
+    }
+    ctx.putImageData(d,0,0);
+
+    $('preview').src = cv.toDataURL('image/jpeg', .85);
+    $('preview').style.display='block';
+    $('progress').style.display='block';
+    $('progText').textContent = '読み取り準備中…（初回はデータ取得のため時間がかかります）';
+    $('progBar').style.width='5%';
+
+    try{
+      const useJpn = $('chkJpn').checked;
+      const lang = useJpn ? 'jpn+eng' : 'eng';
+      const worker = await Tesseract.createWorker(lang, 1, {
+        logger: m=>{
+          if(m.status==='recognizing text'){
+            $('progText').textContent = '読み取り中… '+Math.round(m.progress*100)+'%';
+            $('progBar').style.width = Math.round(m.progress*100)+'%';
+          }
+        }
+      });
+      if(!useJpn){
+        await worker.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789()-:*. ' });
+      }
+      const { data } = await worker.recognize(cv);
+      await worker.terminate();
+      $('progress').style.display='none';
+
+      const p = parseAny(data.text);
+      if(p){
+        render(p, findQty(data.text), label+' OCR');
+      }else{
+        $('result').innerHTML = '<div class="alert err" style="margin-top:4px">品番の形式を検出できませんでした。<br>・ラベル部分を大きく・正面から撮ってください<br>・明るい場所で影を避けてください<br>・下の欄に手入力もできます<br><br><small style="font-weight:400">OCR結果: '+(data.text.trim().slice(0,120)||'(なし)')+'</small></div>';
+        $('result').style.display='block';
+      }
+    }catch(err){
+      $('progress').style.display='none';
+      $('result').innerHTML = '<div class="alert err" style="margin-top:4px">OCRの起動に失敗しました。通信環境をご確認ください（初回はデータのダウンロードが必要です）。<br><small>'+(err.message||err)+'</small></div>';
+      $('result').style.display='block';
+    }
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+/* ===== 設定 ===== */
+$('btnSettings').onclick = ()=>{ buildSettings(); $('settings').style.display='block'; };
+$('btnCloseSettings').onclick = ()=> $('settings').style.display='none';
+$('settings').addEventListener('click', e=>{ if(e.target.id==='settings') $('settings').style.display='none'; });
+
+function buildSettings(){
+  $('mapBlocks').innerHTML = Object.entries(MAPS).map(([key,m])=>
+    '<div class="map-block" data-map="'+key+'"><h3>'+m.label+'</h3>'+
+    Object.entries(m.data).map(([k,v])=>
+      '<div class="map-row"><input class="key" value="'+k+'"><input class="val" value="'+v.replace(/"/g,'&quot;')+'"><button class="del" onclick="this.parentElement.remove()">✕</button></div>'
+    ).join('')+
+    '<button class="map-add" onclick="addRow(this)">＋ 追加</button></div>'
+  ).join('');
+}
+function addRow(btn){
+  const row = document.createElement('div');
+  row.className='map-row';
+  row.innerHTML = '<input class="key" placeholder="記号"><input class="val" placeholder="内容"><button class="del" onclick="this.parentElement.remove()">✕</button>';
+  btn.before(row);
+}
+$('btnSaveMaps').onclick = ()=>{
+  document.querySelectorAll('.map-block').forEach(block=>{
+    const key = block.dataset.map;
+    const data = {};
+    block.querySelectorAll('.map-row').forEach(r=>{
+      const k = r.querySelector('.key').value.trim().toUpperCase();
+      const v = r.querySelector('.val').value.trim();
+      if(k && v) data[k]=v;
+    });
+    MAPS[key].data = data;
+  });
+  const ok = saveMaps();
+  alert(ok ? '保存しました' : 'この環境ではブラウザ保存が使えないため、今回の起動中のみ有効です。「書き出し」でJSONを保存しておくことをおすすめします。');
+  $('settings').style.display='none';
+  if(lastParsed){ const p=parseAny(lastParsed.raw); if(p) render(p,null,'再判定'); }
+};
+$('btnResetMaps').onclick = ()=>{
+  if(confirm('対応表を初期値に戻しますか？')){
+    MAPS = JSON.parse(JSON.stringify(DEFAULT_MAPS));
+    saveMaps(); buildSettings();
+  }
+};
+$('btnExport').onclick = ()=>{
+  const out = {};
+  for(const k in MAPS) out[k]=MAPS[k].data;
+  const blob = new Blob([JSON.stringify(out,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'hinban-maps.json';
+  a.click();
+};
+$('btnImport').onclick = ()=> $('fileImport').click();
+$('fileImport').addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const saved = JSON.parse(r.result);
+      for(const k in MAPS){ if(saved[k]) MAPS[k].data = saved[k]; }
+      saveMaps(); buildSettings();
+      alert('読み込みました');
+    }catch(err){ alert('JSONの読み込みに失敗しました'); }
+  };
+  r.readAsText(f);
+});
+try{ if(localStorage.getItem('hinbanUseJpn')==='1') $('chkJpn').checked = true; }catch(e){}
+$('chkJpn').addEventListener('change', e=>{
+  try{ localStorage.setItem('hinbanUseJpn', e.target.checked?'1':'0'); }catch(err){}
+});
+</script>
+</body>
+</html>
