@@ -98,6 +98,17 @@ input[type=file]{display:none}
 .tag-foot{padding:10px 14px 14px;display:flex;gap:10px}
 .mini-btn{flex:1;padding:11px;border:2px solid var(--ink);border-radius:10px;background:#fff;font-weight:700;font-size:.85rem;cursor:pointer;color:var(--ink)}
 .mini-btn:active{background:#EFEEE9}
+.hwcalc-row{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#FAFAF7;border-bottom:2px solid var(--ink);font-size:.82rem;font-weight:700;flex-wrap:wrap}
+.hwcalc-row .cnt-input{width:3em;padding:6px 4px;border:1.5px solid var(--ink);border-radius:6px;text-align:center;font:inherit;font-weight:800}
+.hwcalc-row .total{font-size:1.25rem;font-weight:900;color:var(--safety)}
+.confirm-btn{padding:8px 14px;border:2px solid var(--warn);border-radius:999px;background:#fff;color:var(--warn);font-weight:800;font-size:.78rem;cursor:pointer;white-space:nowrap}
+.confirm-btn.confirmed{border-color:var(--ok);background:var(--ok);color:#fff}
+.tag-card.card-confirmed{box-shadow:5px 5px 0 rgba(30,127,79,.85);border-color:var(--ok)}
+#hwSummary .summary-box{background:var(--ink);color:#fff;border-radius:12px;padding:12px 14px;margin-bottom:14px}
+#hwSummary h4{font-size:.66rem;letter-spacing:.13em;color:#B9B9BE;margin-bottom:9px;font-weight:700}
+.summary-chips{display:flex;flex-wrap:wrap;gap:8px}
+.summary-chip{display:flex;align-items:center;gap:7px;background:#2A2A30;border-radius:999px;padding:7px 13px;font-weight:800;font-size:.92rem}
+.summary-chip .sw{width:15px;height:15px;border-radius:50%;flex:none;border:1.5px solid #fff}
 
 #history{margin-top:22px}
 #history h2{font-size:.75rem;letter-spacing:.18em;color:var(--sub);margin-bottom:8px}
@@ -152,7 +163,7 @@ input[type=file]{display:none}
 
   <div id="progress"><span id="progText">読み取り中…</span><div class="bar"><div id="progBar"></div></div></div>
   <div id="cropWrap">
-    <p class="crop-hint">✂ <b>品番の部分だけ</b>を指でなぞって囲んでから「囲んだ範囲を読み取る」を押すと精度が大きく上がります。PDFは複数ページある場合、下の矢印でページ送りできます。</p>
+    <p class="crop-hint">📄 アップロードすると自動で全体を読み取ります。読み取れない・別の商品を狙いたいときは、<b>品番の部分だけ</b>を指でなぞって囲んでから「囲んだ範囲を読み取る」を押してください。PDFは複数ページある場合、下の矢印でページ送りできます。</p>
     <div class="page-nav" id="pageNav" style="display:none">
       <button id="btnPrevPage">◀ 前のページ</button>
       <span id="pageLabel">1 / 1</span>
@@ -161,7 +172,7 @@ input[type=file]{display:none}
     <canvas id="cropCanvas"></canvas>
     <div class="crop-actions">
       <button class="mini-btn primary" id="btnOcrCrop" disabled>✂ 囲んだ範囲を読み取る</button>
-      <button class="mini-btn" id="btnOcrFull">全体を読み取る</button>
+      <button class="mini-btn" id="btnOcrFull">全体を再読み取る</button>
     </div>
   </div>
   <div id="result"></div>
@@ -205,6 +216,7 @@ const DEFAULT_MAPS = {
   finish:  {label:'表面仕上げ・塗装（共通）', data:{ "M":"無塗装", "G":"クリア", "T":"ナチュラルオーク", "B":"ミディアムブラウン", "D":"ダークブラウン", "W":"ホワイト", "J":"ベージュブラウン", "C":"シナモンブラウン", "H":"マホガニー", "A":"アンティークベージュ", "E":"エボニー", "Y":"チャコールグレー", "L":"ターコイズブルー", "V":"ヴィンテージグリーン", "●":"特別色（色番号併記）", "*":"特別色・未定" }},
   hwColor: {label:'窓：金物色', data:{ "1":"ゴールド", "2":"シルバー", "3":"ブロンズ", "4":"ブラック", "7":"アンバー", "N":"なし（FIX窓等）", "*":"未定" }},
   hwType:  {label:'窓：金物種類・レール色（2文字目）', data:{ "Y":"標準金物", "N":"なし", "2":"レール:シルバー（引違系）", "3":"レール:ブロンズ（引違系）", "*":"未定" }},
+  hwCount: {label:'窓：金物個数/1台の目安（編集可・出庫計算用）', data:{ "D":"1", "Q":"2", "H":"1", "C":"2", "S":"1", "P":"1", "R":"1", "V":"1", "J":"1", "X":"0", "N":"0" }},
   design:  {label:'窓：窓デザイン', data:{ "S":"S", "T":"T", "A":"A", "M":"M", "G":"ガラス", "O":"押し縁仕様", "1":"片面木格子", "2":"両面木格子", "3":"片面アイアン（窓厚36mm）", "K":"中框" }},
   winType: {label:'窓：窓仕様（開き方）', data:{ "X":"FIX窓", "N":"FIX窓（框なし押縁）", "D":"引違窓", "Q":"四枚引違窓", "R":"横軸回転窓", "V":"縦軸回転窓", "S":"横辷り出し窓", "P":"縦辷り出し窓", "C":"観音窓", "J":"片開き窓", "H":"上げ下げ窓" }},
   glass:   {label:'ガラス種（共通）', data:{ "A-2":"チェッカーガラス", "A-5":"透明ガラス", "A-6":"型ガラス", "M-1":"アクリスター 透明", "M-2":"アクリスター チェッカー", "M-3":"アクリスター モール" }},
@@ -385,18 +397,40 @@ function parseAllCodes(rawText){
 function findQty(text){
   const s = normalize(text);
   let m = s.match(/数量[:：\s]*([0-9]{1,3})/);
-  if(m) return {qty:m[1]};
+  if(m) return {qty:m[1], idx:m.index};
   m = s.match(/([0-9]{1,3})\s*(セット|SET|台|本|枚|ｾｯﾄ)/);
-  if(m) return {qty:m[1]};
+  if(m) return {qty:m[1], idx:m.index};
   return null;
 }
-/* 複数アイテム時：各品番の直後～次の品番までの範囲で数量を探す */
+/* 「数量」等のラベルが無く、納品書の列のように数字だけ独立して書かれているケースの救済策。
+   前後が¥・円・カンマ・mm等（単価や寸法）でない、独立した1〜3桁の数字を数量候補とする */
+function findQtyLoose(text){
+  const s = normalize(text);
+  const re = /(?:^|[\s　])([0-9]{1,3})(?=[\s　]|$)/g;
+  let m;
+  while((m = re.exec(s))){
+    const num = m[1];
+    const start = m.index + (m[0].length - num.length);
+    const before = s.slice(Math.max(0, start-4), start);
+    const after = s.slice(start+num.length, start+num.length+4);
+    if(/[¥￥,.]/.test(before)) continue;
+    if(/^[,.]|円|mm|cm|㎜/.test(after)) continue;
+    return {qty:num, idx:start, loose:true};
+  }
+  return null;
+}
+/* 複数アイテム時：各品番の直後～次の品番までの範囲で数量を探す。
+   ラベル付き／ラベルなし双方の候補を見て、コードに近い方（indexが小さい方）を優先する */
 function findQtyForItems(rawText, items){
   const s = normalize(rawText);
   return items.map((p,i)=>{
     const start = p._end;
     const end = i+1<items.length ? items[i+1]._idx : Math.min(s.length, start+250);
-    return findQty(s.slice(start, end));
+    const seg = s.slice(start, end);
+    const a = findQty(seg);
+    const b = findQtyLoose(seg);
+    if(a && b) return a.idx<=b.idx ? {qty:a.qty} : b;
+    return a ? {qty:a.qty} : b;
   });
 }
 
@@ -421,6 +455,7 @@ function swatchDot(code){
   return SWATCH[code] ? '<span class="sw" style="background:'+SWATCH[code]+'"></span>' : '';
 }
 let lastParsedList = [];
+let confirmedState = {};
 
 function collectUnknowns(checks){
   return checks.filter(([k,c])=> c && !look(k,c).known).map(([k,c])=>MAPS[k].label.replace(/^(窓|建具)：/,'')+':'+c);
@@ -430,6 +465,7 @@ function render(list, qtyList, sourceLabel){
   if(!Array.isArray(list)) list = [list];
   if(!Array.isArray(qtyList)) qtyList = [qtyList];
   lastParsedList = list;
+  confirmedState = {};
   const cards = list.map((p,i)=> p.kind==='window'
     ? renderWindowCard(p, qtyList[i], i, list.length)
     : renderDoorCard(p, qtyList[i], i, list.length)
@@ -437,10 +473,11 @@ function render(list, qtyList, sourceLabel){
   const headerNote = list.length>1
     ? '<div style="font-size:.78rem;font-weight:700;color:var(--sub);margin:2px 2px 10px">📦 '+list.length+'件の品番を検出しました</div>'
     : '';
-  $('result').innerHTML = headerNote + cards;
+  $('result').innerHTML = headerNote + '<div id="hwSummary"></div>' + cards;
   $('result').style.display='block';
   $('result').scrollIntoView({behavior:'smooth', block:'start'});
   list.forEach(p=>addHistory(p.raw));
+  recomputeAll();
 }
 
 function alertsHTML(alerts){
@@ -451,9 +488,86 @@ function footHTML(idx){
 }
 function qtyCell(qtyInfo, idx){
   const q = qtyInfo?qtyInfo.qty:'';
+  const caption = qtyInfo ? (qtyInfo.loose ? '数量欄から自動推定（要確認）' : 'ラベルから読み取り') : 'ラベルの数量を入力';
   return '<div class="hero-cell"><div class="k">数量</div>'+
-    '<div class="hero-qty"><input id="qtyInput_'+idx+'" value="'+q+'" inputmode="numeric" placeholder="－"></div>'+
-    '<div style="font-size:.65rem;color:var(--sub);margin-top:2px">'+(qtyInfo?'ラベルから読み取り':'ラベルの数量を入力')+'</div></div>';
+    '<div class="hero-qty"><input id="qtyInput_'+idx+'" value="'+q+'" inputmode="numeric" placeholder="－" oninput="recomputeAll()"></div>'+
+    '<div style="font-size:.65rem;color:'+(qtyInfo&&qtyInfo.loose?'var(--warn)':'var(--sub)')+';margin-top:2px">'+caption+'</div></div>';
+}
+function defaultWinCount(p){
+  return (MAPS.hwCount && MAPS.hwCount.data[p.winType]) || '1';
+}
+function defaultHingeCount(p){
+  let h = null;
+  if(p.doorH){
+    const mm = parseInt(String(p.doorH).replace(/[^0-9]/g,''),10);
+    if(!isNaN(mm) && mm>0) h = mm;
+  }
+  if(h){
+    if(h<=2000) return 2;
+    if(h<=2100) return 3;
+    return 4;
+  }
+  return 3;
+}
+function addBucket(buckets, code, amount){
+  if(!code || code==='N' || code==='*' || amount<=0) return;
+  const r = look('hwColor', code);
+  if(!buckets[code]) buckets[code] = {label:r.text, known:r.known, total:0};
+  buckets[code].total += amount;
+}
+function recomputeAll(){
+  const buckets = {};
+  let confirmedCount = 0;
+  lastParsedList.forEach((p,i)=>{
+    if(confirmedState[i]) confirmedCount++;
+    const qtyEl = $('qtyInput_'+i);
+    const qty = qtyEl ? (parseFloat(qtyEl.value)||0) : 0;
+    if(p.kind==='window'){
+      const cntEl = $('cntInput_'+i);
+      const cnt = cntEl ? (parseFloat(cntEl.value)||0) : 0;
+      const t = qty*cnt;
+      const totEl = $('totalHw_'+i);
+      if(totEl) totEl.textContent = t>0 ? t : '－';
+      addBucket(buckets, p.hwColor, t);
+    }else{
+      addBucket(buckets, p.hw1, qty);
+      const isHinged = p.doorType==='31' || (!p.doorType && !p.head);
+      if(isHinged){
+        const hEl = $('hingeCnt_'+i);
+        const hc = hEl ? (parseFloat(hEl.value)||0) : 0;
+        const t = qty*hc;
+        const totEl = $('totalHinge_'+i);
+        if(totEl) totEl.textContent = t>0 ? t : '－';
+        addBucket(buckets, p.hw3, t);
+      }
+    }
+  });
+  const el = $('hwSummary');
+  if(!el) return;
+  const keys = Object.keys(buckets);
+  if(!keys.length){ el.innerHTML=''; return; }
+  const chips = keys.map(k=>{
+    const b = buckets[k];
+    const sw = SWATCH[k] ? '<span class="sw" style="background:'+SWATCH[k]+'"></span>' : '';
+    return '<span class="summary-chip">'+sw+b.label+' × '+b.total+(b.known?'':' <small style="opacity:.7">(要確認)</small>')+'</span>';
+  }).join('');
+  const total = lastParsedList.length;
+  el.innerHTML = '<div class="summary-box"><h4>🔧 金物 出庫合計（現在の入力値ベース）'+(total>1?' ／ 現物確認 '+confirmedCount+' / '+total+'件':'')+'</h4><div class="summary-chips">'+chips+'</div></div>';
+}
+function toggleConfirm(idx){
+  confirmedState[idx] = !confirmedState[idx];
+  const btn = $('confirmBtn_'+idx);
+  const card = $('card_'+idx);
+  if(confirmedState[idx]){
+    btn.textContent = '✓ 確認済み';
+    btn.classList.add('confirmed');
+    if(card) card.classList.add('card-confirmed');
+  }else{
+    btn.textContent = '☐ 現物と一致を確認';
+    btn.classList.remove('confirmed');
+    if(card) card.classList.remove('card-confirmed');
+  }
+  recomputeAll();
 }
 
 /* ---- 窓カード ---- */
@@ -474,7 +588,7 @@ function renderWindowCard(p, qtyInfo, idx, total){
   const frameSym = MAPS.frameW.data[p.f] ? '（'+MAPS.frameW.data[p.f]+'）' : '';
   const badge = total>1 ? '<span class="type-badge" style="background:#444">No.'+(idx+1)+'/'+total+'</span>' : '';
   return (
-  '<div class="tag-card" style="margin-bottom:16px">'+
+  '<div class="tag-card" id="card_'+idx+'" style="margin-bottom:16px">'+
     '<div class="tag-head"><span class="lbl">SHIPPING CHECK</span><span style="display:flex;gap:6px">'+badge+'<span class="type-badge">室内窓'+(p.tokFlag?'・特注':'')+'</span></span></div>'+
     '<div class="tag-code">'+p.raw+'</div>'+
     '<div class="hero-row">'+qtyCell(qtyInfo, idx)+
@@ -482,6 +596,11 @@ function renderWindowCard(p, qtyInfo, idx, total){
         '<div class="hw-chip"><span class="hw-swatch" style="background:'+(SWATCH[p.hwColor]||'#999')+'"></span>'+hw.text+'</div>'+
         '<div style="font-size:.72rem;color:var(--sub);margin-top:5px">'+look('hwType',p.hwType).text+'<span class="code" style="font-family:var(--mono)">（'+p.hwColor+p.hwType+'）</span></div>'+
       '</div>'+
+    '</div>'+
+    '<div class="hwcalc-row">'+
+      '<span>個数/1台</span><input class="cnt-input" id="cntInput_'+idx+'" value="'+defaultWinCount(p)+'" inputmode="numeric" oninput="recomputeAll()">'+
+      '<span>× 数量 = <span class="total" id="totalHw_'+idx+'">－</span> 個</span>'+
+      '<button class="confirm-btn" id="confirmBtn_'+idx+'" onclick="toggleConfirm('+idx+')" style="margin-left:auto">☐ 現物と一致を確認</button>'+
     '</div>'+
     '<div class="spec-grid">'+
       specHTML('窓仕様', p.winType, 'winType')+
@@ -536,9 +655,16 @@ function renderDoorCard(p, qtyInfo, idx, total){
   }
   const stype = p.sizeType ? look('doorSizeType',p.sizeType).text : '';
   const badge = total>1 ? '<span class="type-badge" style="background:#444">No.'+(idx+1)+'/'+total+'</span>' : '';
+  const calcRow = isHinged
+    ? '<div class="hwcalc-row">'+
+        '<span>丁番 本数/1枚</span><input class="cnt-input" id="hingeCnt_'+idx+'" value="'+defaultHingeCount(p)+'" inputmode="numeric" oninput="recomputeAll()">'+
+        '<span>× 数量 = <span class="total" id="totalHinge_'+idx+'">－</span> 本</span>'+
+        '<button class="confirm-btn" id="confirmBtn_'+idx+'" onclick="toggleConfirm('+idx+')" style="margin-left:auto">☐ 現物と一致を確認</button>'+
+      '</div>'
+    : '<div class="hwcalc-row"><button class="confirm-btn" id="confirmBtn_'+idx+'" onclick="toggleConfirm('+idx+')">☐ 現物と一致を確認</button></div>';
 
   return (
-  '<div class="tag-card" style="margin-bottom:16px">'+
+  '<div class="tag-card" id="card_'+idx+'" style="margin-bottom:16px">'+
     '<div class="tag-head"><span class="lbl">SHIPPING CHECK</span><span style="display:flex;gap:6px">'+badge+'<span class="type-badge" style="background:#1E5F8F">建具'+(p.tokFlag?'・特注':'')+'</span></span></div>'+
     '<div class="tag-code">'+p.raw+'</div>'+
     '<div class="hero-row">'+qtyCell(qtyInfo, idx)+
@@ -552,6 +678,7 @@ function renderDoorCard(p, qtyInfo, idx, total){
       hwCell(hwLabels[1], p.hw2, hwMaps[1])+
       hwCell(hwLabels[2], p.hw3, hwMaps[2])+
     '</div>'+
+    calcRow+
     '<div class="spec-grid">'+
       '<div class="spec"><div class="k">扉デザイン</div><div class="v '+(look('doorSeries',p.series).known?'':'unknown')+'">'+look('doorSeries',p.series).text+' '+p.designNo+'<span class="code">'+p.series+p.designNo+'</span></div></div>'+
       (p.doorType ? specHTML('建具種類', p.doorType, 'doorType') : '<div class="spec"><div class="k">建具種類</div><div class="v" style="color:var(--sub)">記載なし</div></div>')+
@@ -572,12 +699,16 @@ function copyResult(idx){
   const p = lastParsedList[idx];
   if(!p) return;
   const qty = $('qtyInput_'+idx) ? $('qtyInput_'+idx).value : '';
+  const confirmTxt = '現物確認: '+(confirmedState[idx]?'済み':'未確認');
   let lines;
   if(p.kind==='window'){
+    const cnt = $('cntInput_'+idx) ? $('cntInput_'+idx).value : '';
+    const totTxt = $('totalHw_'+idx) ? $('totalHw_'+idx).textContent : '－';
     lines = [
       '【室内窓】'+p.raw,
       '数量: '+(qty||'未入力'),
-      '金物: '+look('hwColor',p.hwColor).text+'（'+look('hwType',p.hwType).text+'）',
+      '金物: '+look('hwColor',p.hwColor).text+'（'+look('hwType',p.hwType).text+'） ／ 個数/1台:'+cnt+' → 出庫合計:'+totTxt+'個',
+      confirmTxt,
       '窓仕様: '+look('winType',p.winType).text,
       'サイズ: '+p.w+'×'+p.h+'mm 枠巾'+p.f+'mm',
       '構成: '+look('prefix',p.prefix).text,
@@ -585,11 +716,14 @@ function copyResult(idx){
       'デザイン: '+look('design',p.design).text + (p.glass?' / ガラス: '+look('glass',p.glass).text:'')
     ];
   }else{
+    const isHinged = p.doorType==='31' || (!p.doorType && !p.head);
+    const hingeTxt = isHinged ? (' ／ 丁番本数/1枚:'+($('hingeCnt_'+idx)?$('hingeCnt_'+idx).value:'')+' → 出庫合計:'+($('totalHinge_'+idx)?$('totalHinge_'+idx).textContent:'－')+'本') : '';
     lines = [
       '【建具'+(p.tokFlag?'・特注':'')+'】'+p.raw,
       '数量: '+(qty||'未入力'),
       '吊元・勝手: '+(p.handNote?p.handNote:(p.hand?look('hand',p.hand).text:'記載なし')),
-      '金物: '+(p.hw1||'')+(p.hw2||'')+(p.hw3||''),
+      '金物: '+(p.hw1||'')+(p.hw2||'')+(p.hw3||'')+hingeTxt,
+      confirmTxt,
       'デザイン: '+look('doorSeries',p.series).text+' '+p.designNo + (p.doorType?' / '+look('doorType',p.doorType).text:''),
       'サイズ: '+p.sizeRaw + (p.frameW?' / 枠巾: '+look('doorFrameW',p.frameW).text:'') + (p.colorNote?' / 備考: '+p.colorNote:''),
       '構成: '+look('prefix',p.prefix).text,
@@ -603,6 +737,7 @@ function clearResult(){
   $('cropWrap').style.display='none';
   $('txtInput').value='';
   lastParsedList=[];
+  confirmedState={};
 }
 
 const hist = [];
@@ -632,8 +767,8 @@ $('txtInput').addEventListener('input', e=>{
 $('btnCamera').onclick = ()=> $('fileCamera').click();
 $('btnFile').onclick   = ()=> $('fileGallery').click();
 $('btnPdf').onclick    = ()=> $('filePdf').click();
-$('fileCamera').addEventListener('change', e=>{ loadForCrop(e.target.files[0]); e.target.value=''; });
-$('fileGallery').addEventListener('change', e=>{ loadForCrop(e.target.files[0]); e.target.value=''; });
+$('fileCamera').addEventListener('change', e=>{ loadForCrop(e.target.files[0], 'カメラ'); e.target.value=''; });
+$('fileGallery').addEventListener('change', e=>{ loadForCrop(e.target.files[0], '画像'); e.target.value=''; });
 $('filePdf').addEventListener('change', e=>{ loadPdf(e.target.files[0]); e.target.value=''; });
 
 if(window.pdfjsLib){
@@ -660,14 +795,14 @@ async function loadPdf(file){
     pdfPages = pdfDoc.numPages;
     pdfPage = 1;
     $('pageNav').style.display = pdfPages>1 ? 'flex' : 'none';
-    await renderPdfPage();
+    await renderPdfPage(true);
   }catch(err){
     $('progress').style.display='none';
     $('result').innerHTML = '<div class="alert err" style="margin-top:4px">PDFの読み込みに失敗しました。<br><small>'+(err.message||err)+'</small></div>';
     $('result').style.display='block';
   }
 }
-async function renderPdfPage(){
+async function renderPdfPage(autoOCR){
   const page = await pdfDoc.getPage(pdfPage);
   const baseVp = page.getViewport({scale:1});
   const scale = Math.min(3, 2000/baseVp.width);
@@ -690,11 +825,12 @@ async function renderPdfPage(){
   $('btnPrevPage').disabled = pdfPage<=1;
   $('btnNextPage').disabled = pdfPage>=pdfPages;
   $('progress').style.display='none';
+  if(autoOCR) runOCR(srcCanvas, 'PDF');
 }
-$('btnPrevPage').onclick = ()=>{ if(pdfPage>1){ pdfPage--; renderPdfPage(); } };
-$('btnNextPage').onclick = ()=>{ if(pdfPage<pdfPages){ pdfPage++; renderPdfPage(); } };
+$('btnPrevPage').onclick = ()=>{ if(pdfPage>1){ pdfPage--; $('result').style.display='none'; renderPdfPage(); } };
+$('btnNextPage').onclick = ()=>{ if(pdfPage<pdfPages){ pdfPage++; $('result').style.display='none'; renderPdfPage(); } };
 
-function loadForCrop(file){
+function loadForCrop(file, label){
   if(!file) return;
   const url = URL.createObjectURL(file);
   const img = new Image();
@@ -714,6 +850,7 @@ function loadForCrop(file){
     $('result').style.display='none';
     $('cropWrap').scrollIntoView({behavior:'smooth', block:'start'});
     URL.revokeObjectURL(url);
+    runOCR(srcCanvas, label);
   };
   img.src = url;
 }
@@ -767,9 +904,9 @@ $('btnOcrCrop').onclick = ()=>{
   c.width = Math.round(cropRect.w);
   c.height = Math.round(cropRect.h);
   c.getContext('2d').drawImage(srcCanvas, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0,0,c.width,c.height);
-  runOCR(c, 'カメラ');
+  runOCR(c, '再読み取り');
 };
-$('btnOcrFull').onclick = ()=>{ if(srcCanvas) runOCR(srcCanvas, 'カメラ'); };
+$('btnOcrFull').onclick = ()=>{ if(srcCanvas) runOCR(srcCanvas, '再読み取り'); };
 
 /* 前処理：拡大＋グレースケール（binarize=trueでOtsu二値化） */
 function preprocess(src, binarize){
