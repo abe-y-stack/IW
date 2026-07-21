@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>品番リーダー｜LOHAS material</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{
   --paper:#F7F6F2; --ink:#1B1B1F; --sub:#6B6B70;
@@ -28,16 +29,19 @@ header .sub{font-size:.62rem;color:#B9B9BE;letter-spacing:.14em;margin-top:2px}
 #btnSettings{background:none;border:1.5px solid #55555C;color:#fff;border-radius:8px;padding:7px 12px;font-size:.8rem;cursor:pointer}
 main{max-width:680px;margin:0 auto;padding:16px 14px}
 
-.inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.inputs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
 .big-btn{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
-  padding:20px 8px;border:2px solid var(--ink);border-radius:12px;background:var(--card);
-  cursor:pointer;font-weight:700;font-size:.95rem;box-shadow:3px 3px 0 var(--ink);
+  padding:16px 6px;border:2px solid var(--ink);border-radius:12px;background:var(--card);
+  cursor:pointer;font-weight:700;font-size:.82rem;box-shadow:3px 3px 0 var(--ink);
   transition:transform .06s,box-shadow .06s;color:var(--ink);
 }
 .big-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
-.big-btn .ico{font-size:1.6rem;line-height:1}
+.big-btn .ico{font-size:1.5rem;line-height:1}
 .big-btn.camera{background:var(--safety);color:#fff}
+.page-nav{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px;font-size:.85rem;font-weight:700}
+.page-nav button{border:2px solid var(--ink);background:#fff;border-radius:8px;padding:6px 14px;font-weight:800;cursor:pointer}
+.page-nav button:disabled{opacity:.35}
 .paste-wrap{margin-bottom:14px}
 .paste-wrap label{font-size:.75rem;font-weight:700;color:var(--sub);letter-spacing:.08em;display:block;margin-bottom:5px}
 textarea#txtInput{
@@ -50,7 +54,12 @@ input[type=file]{display:none}
 #progress{display:none;margin:10px 0;padding:12px 14px;border:2px dashed var(--sub);border-radius:10px;background:#fff;font-size:.85rem}
 #progress .bar{height:8px;background:#EDEDEA;border-radius:4px;margin-top:8px;overflow:hidden}
 #progress .bar>div{height:100%;width:0;background:var(--safety);transition:width .2s}
-#preview{display:none;width:100%;border:2px solid var(--ink);border-radius:10px;margin:8px 0}
+#cropWrap{display:none;margin:8px 0}
+.crop-hint{font-size:.82rem;font-weight:700;background:#FFF3E6;border:2px solid var(--safety);border-radius:10px;padding:9px 12px;margin-bottom:8px;line-height:1.5}
+#cropCanvas{width:100%;display:block;border:2px solid var(--ink);border-radius:10px;touch-action:none;user-select:none}
+.crop-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.mini-btn.primary{background:var(--safety);color:#fff}
+.mini-btn:disabled{opacity:.4}
 
 #result{display:none;margin-top:6px}
 .tag-card{background:var(--card);border:2.5px solid var(--ink);border-radius:14px;overflow:hidden;box-shadow:5px 5px 0 rgba(27,27,31,.85)}
@@ -128,11 +137,13 @@ input[type=file]{display:none}
 
 <main>
   <div class="inputs">
-    <button class="big-btn camera" id="btnCamera"><span class="ico">📷</span>カメラで読み取る</button>
-    <button class="big-btn" id="btnFile"><span class="ico">🖼</span>画像を選ぶ</button>
+    <button class="big-btn camera" id="btnCamera"><span class="ico">📷</span>カメラ</button>
+    <button class="big-btn" id="btnFile"><span class="ico">🖼</span>画像</button>
+    <button class="big-btn" id="btnPdf"><span class="ico">📄</span>PDF</button>
   </div>
   <input type="file" id="fileCamera" accept="image/*" capture="environment">
   <input type="file" id="fileGallery" accept="image/*">
+  <input type="file" id="filePdf" accept="application/pdf,.pdf">
 
   <div class="paste-wrap">
     <label>品番を貼り付け・入力（窓／建具を自動判別）</label>
@@ -140,7 +151,19 @@ input[type=file]{display:none}
   </div>
 
   <div id="progress"><span id="progText">読み取り中…</span><div class="bar"><div id="progBar"></div></div></div>
-  <img id="preview" alt="読み取り画像">
+  <div id="cropWrap">
+    <p class="crop-hint">✂ <b>品番の部分だけ</b>を指でなぞって囲んでから「囲んだ範囲を読み取る」を押すと精度が大きく上がります。PDFは複数ページある場合、下の矢印でページ送りできます。</p>
+    <div class="page-nav" id="pageNav" style="display:none">
+      <button id="btnPrevPage">◀ 前のページ</button>
+      <span id="pageLabel">1 / 1</span>
+      <button id="btnNextPage">次のページ ▶</button>
+    </div>
+    <canvas id="cropCanvas"></canvas>
+    <div class="crop-actions">
+      <button class="mini-btn primary" id="btnOcrCrop" disabled>✂ 囲んだ範囲を読み取る</button>
+      <button class="mini-btn" id="btnOcrFull">全体を読み取る</button>
+    </div>
+  </div>
   <div id="result"></div>
   <div id="history"><h2>読み取り履歴（この画面のみ）</h2><div id="histList"></div></div>
 </main>
@@ -249,40 +272,51 @@ function fixDigits(seg){
 }
 
 /* ---- 窓（インテリアウィンドウ） ---- */
-function parseWindow(rawText){
-  const s = normalize(rawText);
-  const re = /(?:\(\s*特\s*\)\s*)?\(?\s*(HF|H|F)\s*\)?\s*W\s*([A-Z])\s*(\d{1,2})\s*-\s*([A-Z])\s*([A-Z●*])\s*\(?\s*([A-Z0-9*])\s*([A-Z0-9*])\s*\)?\s*-\s*([0-9OQDILBSZ|*]{10,14})\s*-\s*([A-Z0-9])\s*([A-Z])(?:[\s　]*([AM]\s*-\s*\d))?/;
-  const m = s.match(re);
-  if(!m) return null;
+const WIN_RE_SRC = '(?:\\(\\s*特\\s*\\)\\s*)?\\(?\\s*(HF|H|F)\\s*\\)?\\s*W\\s*([A-Z])\\s*(\\d{1,2})\\s*-\\s*([A-Z])\\s*([A-Z●*])\\s*\\(?\\s*([A-Z0-9*])\\s*([A-Z0-9*])\\s*\\)?\\s*-\\s*([0-9OQDILBSZ|*][0-9OQDILBSZ|*\\s]{8,32})\\s*-\\s*([A-Z0-9])\\s*([A-Z])(?:[\\s\u3000]*([AM]\\s*-\\s*\\d))?';
+
+function buildWindowResult(m, s){
   const seg = fixDigits(m[8]).replace(/[^0-9*]/g,'');
   let w='?',h='?',f='?';
   if(seg.length===12){
     const chunk = i=>{ const c=seg.slice(i,i+4); return /\*/.test(c)?'未定':String(parseInt(c,10)); };
     w=chunk(0); h=chunk(4); f=chunk(8);
   }
-  return {kind:'window', raw:m[0].trim(), tokFlag:/\(\s*特\s*\)/.test(s),
+  return {kind:'window', raw:m[0].trim(), tokFlag:/\(\s*特\s*\)/.test(m[0]),
     prefix:m[1], parts:m[2], layout:m[3],
     wood:m[4], finish:m[5], hwColor:m[6], hwType:m[7], w,h,f, digitsRaw:m[8],
-    design:m[9], winType:m[10], glass:m[11]?m[11].replace(/\s/g,''):null};
+    design:m[9], winType:m[10], glass:m[11]?m[11].replace(/\s/g,''):null,
+    _idx:m.index, _end:m.index+m[0].length};
+}
+function parseWindow(rawText){
+  const s = normalize(rawText);
+  const m = s.match(new RegExp(WIN_RE_SRC));
+  if(!m) return null;
+  m.index = m.index||0;
+  return buildWindowResult(m, s);
+}
+function parseAllWindows(s){
+  const re = new RegExp(WIN_RE_SRC, 'g');
+  const out = [];
+  let m;
+  while((m = re.exec(s))){
+    out.push(buildWindowResult(m, s));
+    if(m[0].length===0) re.lastIndex++;
+  }
+  return out;
 }
 
 /* ---- 建具（ドア・引戸） ----
    例1: (HF)SDD0731-K712S-LAW(2N2)L
    例2: (特)(H)A-ID10-H****-AB(1HN)R A-6(型ガラス)
 */
-function parseDoor(rawText){
-  const s = normalize(rawText);
-  const re = /(\(\s*特\s*\))?\s*\(?\s*(HF|H|F)\s*\)?\s*([A-Z])?\s*-?\s*(SD|TD|AD|MD|DD|FD|ID)\s*-?\s*(\d{2})\s*(\d{2})?\s*-\s*([A-Z]?[\d*OQI]{3,10}[A-Z]?)\s*-\s*([A-Z●*]{2,3})\s*\(\s*([A-Z0-9*]{2,3})\s*\)\s*([LR])?(?:[\s　]*\(\s*((?:特別色|L\d+)[^)]*)\s*\))?(?:[\s　]*([AM]\s*-\s*\d))?/;
-  const m = s.match(re);
-  if(!m) return null;
+const DOOR_RE_SRC = '(\\(\\s*特\\s*\\))?\\s*\\(?\\s*(HF|H|F)\\s*\\)?\\s*([A-Z])?\\s*-?\\s*(SD|TD|AD|MD|DD|FD|ID)\\s*-?\\s*(\\d{2})\\s*(\\d{2})?\\s*-\\s*([A-Z]?[\\d*OQI]{3,10}[A-Z]?)\\s*-\\s*([A-Z●*]{2,3})\\s*\\(\\s*([A-Z0-9*]{2,3})\\s*\\)\\s*([LR])?(?:[\\s\u3000]*\\(\\s*((?:特別色|L\\d+)[^)]*)\\s*\\))?(?:[\\s\u3000]*([AM]\\s*-\\s*\\d))?';
 
-  // 樹種ブロック: 3文字=枠巾+樹種+塗装 / 2文字=樹種+塗装（本体のみ等）
+function buildDoorResult(m, s){
   const wf = m[8];
   let frameW=null, wood, finish;
   if(wf.length===3){ frameW=wf[0]; wood=wf[1]; finish=wf[2]; }
   else { wood=wf[0]; finish=wf[1]; }
 
-  // サイズブロック: K712S=扉幅712×扉高S / K****=未定 / H08002050等
   const sizeRaw = m[7];
   let sizeType=null, doorW='', doorH='', sizeNote='';
   const st = sizeRaw[0];
@@ -298,12 +332,11 @@ function parseDoor(rawText){
     else if(d.length>=3){ doorW=String(parseInt(d,10)); }
   }
 
-  // 金物3桁
   const hw = m[9].split('');
 
-  // 吊元: 「L/R未定」表記の検出
   let hand = m[10]||null, handNote=null;
-  if(/\)\s*[LR]?\s*\/\s*[LR]/.test(s)){ hand=null; handNote='L/R未定'; }
+  const around = s.slice(Math.max(0,m.index), m.index+m[0].length+6);
+  if(/\)\s*[LR]?\s*\/\s*[LR]/.test(around)){ hand=null; handNote='L/R未定'; }
 
   return {kind:'door', raw:m[0].trim(),
     tokFlag:!!m[1], prefix:m[2], head:m[3]||null,
@@ -312,11 +345,42 @@ function parseDoor(rawText){
     frameW, wood, finish,
     hw1:hw[0]||null, hw2:hw[1]||null, hw3:hw[2]||null,
     hand, handNote, colorNote:m[11]||null,
-    glass:m[12]?m[12].replace(/\s/g,''):null};
+    glass:m[12]?m[12].replace(/\s/g,''):null,
+    _idx:m.index, _end:m.index+m[0].length};
+}
+function parseDoor(rawText){
+  const s = normalize(rawText);
+  const m = s.match(new RegExp(DOOR_RE_SRC));
+  if(!m) return null;
+  m.index = m.index||0;
+  return buildDoorResult(m, s);
+}
+function parseAllDoors(s){
+  const re = new RegExp(DOOR_RE_SRC, 'g');
+  const out = [];
+  let m;
+  while((m = re.exec(s))){
+    out.push(buildDoorResult(m, s));
+    if(m[0].length===0) re.lastIndex++;
+  }
+  return out;
 }
 
 function parseAny(text){
   return parseWindow(text) || parseDoor(text);
+}
+function parseAllCodes(rawText){
+  const s = normalize(rawText);
+  const all = [...parseAllWindows(s), ...parseAllDoors(s)].sort((a,b)=>a._idx-b._idx);
+  // 重複・重なり除去（同じ範囲を窓/建具どちらでも拾った場合は先に見つかった方を優先）
+  const out = [];
+  let lastEnd = -1;
+  for(const p of all){
+    if(p._idx < lastEnd) continue;
+    out.push(p);
+    lastEnd = p._end;
+  }
+  return out;
 }
 function findQty(text){
   const s = normalize(text);
@@ -326,11 +390,22 @@ function findQty(text){
   if(m) return {qty:m[1]};
   return null;
 }
+/* 複数アイテム時：各品番の直後～次の品番までの範囲で数量を探す */
+function findQtyForItems(rawText, items){
+  const s = normalize(rawText);
+  return items.map((p,i)=>{
+    const start = p._end;
+    const end = i+1<items.length ? items[i+1]._idx : Math.min(s.length, start+250);
+    return findQty(s.slice(start, end));
+  });
+}
 
 /* =====================================================
    表示
 ===================================================== */
 const $ = id => document.getElementById(id);
+let srcCanvas=null, cropRect=null, dragStart=null;
+const cvView = $('cropCanvas');
 function look(mapKey, code){
   if(code===null || code===undefined || code==='') return {text:'－', known:true};
   const v = MAPS[mapKey].data[code];
@@ -345,36 +420,44 @@ function specHTML(label, code, mapKey, wide){
 function swatchDot(code){
   return SWATCH[code] ? '<span class="sw" style="background:'+SWATCH[code]+'"></span>' : '';
 }
-let lastParsed = null;
+let lastParsedList = [];
 
 function collectUnknowns(checks){
   return checks.filter(([k,c])=> c && !look(k,c).known).map(([k,c])=>MAPS[k].label.replace(/^(窓|建具)：/,'')+':'+c);
 }
 
-function render(parsed, qtyInfo, sourceLabel){
-  lastParsed = parsed;
-  if(parsed.kind==='window') renderWindow(parsed, qtyInfo, sourceLabel);
-  else renderDoor(parsed, qtyInfo, sourceLabel);
+function render(list, qtyList, sourceLabel){
+  if(!Array.isArray(list)) list = [list];
+  if(!Array.isArray(qtyList)) qtyList = [qtyList];
+  lastParsedList = list;
+  const cards = list.map((p,i)=> p.kind==='window'
+    ? renderWindowCard(p, qtyList[i], i, list.length)
+    : renderDoorCard(p, qtyList[i], i, list.length)
+  ).join('');
+  const headerNote = list.length>1
+    ? '<div style="font-size:.78rem;font-weight:700;color:var(--sub);margin:2px 2px 10px">📦 '+list.length+'件の品番を検出しました</div>'
+    : '';
+  $('result').innerHTML = headerNote + cards;
   $('result').style.display='block';
   $('result').scrollIntoView({behavior:'smooth', block:'start'});
-  addHistory(parsed.raw);
+  list.forEach(p=>addHistory(p.raw));
 }
 
 function alertsHTML(alerts){
   return '<div class="alerts">'+alerts.map(a=>'<div class="alert '+a.cls+'">'+a.msg+'</div>').join('')+'</div>';
 }
-function footHTML(){
-  return '<div class="tag-foot"><button class="mini-btn" onclick="copyResult()">📋 結果をコピー</button><button class="mini-btn" onclick="clearResult()">✕ クリア</button></div>';
+function footHTML(idx){
+  return '<div class="tag-foot"><button class="mini-btn" onclick="copyResult('+idx+')">📋 結果をコピー</button><button class="mini-btn" onclick="clearResult()">✕ クリア</button></div>';
 }
-function qtyCell(qtyInfo){
+function qtyCell(qtyInfo, idx){
   const q = qtyInfo?qtyInfo.qty:'';
   return '<div class="hero-cell"><div class="k">数量</div>'+
-    '<div class="hero-qty"><input id="qtyInput" value="'+q+'" inputmode="numeric" placeholder="－"></div>'+
+    '<div class="hero-qty"><input id="qtyInput_'+idx+'" value="'+q+'" inputmode="numeric" placeholder="－"></div>'+
     '<div style="font-size:.65rem;color:var(--sub);margin-top:2px">'+(qtyInfo?'ラベルから読み取り':'ラベルの数量を入力')+'</div></div>';
 }
 
 /* ---- 窓カード ---- */
-function renderWindow(p, qtyInfo, src){
+function renderWindowCard(p, qtyInfo, idx, total){
   const alerts = [];
   const hw = look('hwColor', p.hwColor);
   const allowed = HW_ALLOWED[p.winType];
@@ -389,11 +472,12 @@ function renderWindow(p, qtyInfo, src){
   if(!alerts.length) alerts.push({cls:'ok', msg:'✓ 記号はすべて登録済みです。現物と照合してください。'});
 
   const frameSym = MAPS.frameW.data[p.f] ? '（'+MAPS.frameW.data[p.f]+'）' : '';
-  $('result').innerHTML =
-  '<div class="tag-card">'+
-    '<div class="tag-head"><span class="lbl">SHIPPING CHECK</span><span class="type-badge">室内窓'+(p.tokFlag?'・特注':'')+'</span></div>'+
+  const badge = total>1 ? '<span class="type-badge" style="background:#444">No.'+(idx+1)+'/'+total+'</span>' : '';
+  return (
+  '<div class="tag-card" style="margin-bottom:16px">'+
+    '<div class="tag-head"><span class="lbl">SHIPPING CHECK</span><span style="display:flex;gap:6px">'+badge+'<span class="type-badge">室内窓'+(p.tokFlag?'・特注':'')+'</span></span></div>'+
     '<div class="tag-code">'+p.raw+'</div>'+
-    '<div class="hero-row">'+qtyCell(qtyInfo)+
+    '<div class="hero-row">'+qtyCell(qtyInfo, idx)+
       '<div class="hero-cell"><div class="k">金物</div>'+
         '<div class="hw-chip"><span class="hw-swatch" style="background:'+(SWATCH[p.hwColor]||'#999')+'"></span>'+hw.text+'</div>'+
         '<div style="font-size:.72rem;color:var(--sub);margin-top:5px">'+look('hwType',p.hwType).text+'<span class="code" style="font-family:var(--mono)">（'+p.hwColor+p.hwType+'）</span></div>'+
@@ -409,12 +493,12 @@ function renderWindow(p, qtyInfo, src){
       specHTML('窓デザイン', p.design, 'design')+
       (p.glass ? specHTML('ガラス', p.glass, 'glass') : '<div class="spec"><div class="k">ガラス</div><div class="v" style="color:var(--sub)">記載なし</div></div>')+
       '<div class="spec wide"><div class="k">窓配置</div><div class="v">'+p.layout+'<span class="code">パーツ:'+p.parts+'（'+look('parts',p.parts).text+'）</span></div></div>'+
-    '</div>'+alertsHTML(alerts)+footHTML()+
-  '</div>';
+    '</div>'+alertsHTML(alerts)+footHTML(idx)+
+  '</div>');
 }
 
 /* ---- 建具カード ---- */
-function renderDoor(p, qtyInfo, src){
+function renderDoorCard(p, qtyInfo, idx, total){
   const alerts = [];
   const isHinged = p.doorType==='31' || (!p.doorType && !p.head); // 片開き系
   const hwLabels = isHinged ? ['レバー','表示錠','丁番'] : ['引き手・レバー','金物②','金物③'];
@@ -451,12 +535,13 @@ function renderDoor(p, qtyInfo, src){
     }
   }
   const stype = p.sizeType ? look('doorSizeType',p.sizeType).text : '';
+  const badge = total>1 ? '<span class="type-badge" style="background:#444">No.'+(idx+1)+'/'+total+'</span>' : '';
 
-  $('result').innerHTML =
-  '<div class="tag-card">'+
-    '<div class="tag-head"><span class="lbl">SHIPPING CHECK</span><span class="type-badge" style="background:#1E5F8F">建具'+(p.tokFlag?'・特注':'')+'</span></div>'+
+  return (
+  '<div class="tag-card" style="margin-bottom:16px">'+
+    '<div class="tag-head"><span class="lbl">SHIPPING CHECK</span><span style="display:flex;gap:6px">'+badge+'<span class="type-badge" style="background:#1E5F8F">建具'+(p.tokFlag?'・特注':'')+'</span></span></div>'+
     '<div class="tag-code">'+p.raw+'</div>'+
-    '<div class="hero-row">'+qtyCell(qtyInfo)+
+    '<div class="hero-row">'+qtyCell(qtyInfo, idx)+
       '<div class="hero-cell"><div class="k">吊元・勝手</div>'+
         '<div class="hero-big" style="color:'+(p.handNote?'var(--err)':(p.hand?'var(--ink)':'var(--sub)'))+'">'+handTxt+'</div>'+
         '<div style="font-size:.68rem;color:var(--sub);margin-top:3px">左右間違い注意</div>'+
@@ -478,14 +563,15 @@ function renderDoor(p, qtyInfo, src){
       (p.glass ? specHTML('ガラス', p.glass, 'glass') : '<div class="spec"><div class="k">ガラス</div><div class="v" style="color:var(--sub)">記載なし</div></div>')+
       (p.head ? specHTML('先頭記号', p.head, 'doorHead', true) : '')+
       (p.colorNote ? '<div class="spec wide"><div class="k">色番号・備考</div><div class="v" style="color:var(--warn)">'+p.colorNote+'</div></div>' : '')+
-    '</div>'+alertsHTML(alerts)+footHTML()+
-  '</div>';
+    '</div>'+alertsHTML(alerts)+footHTML(idx)+
+  '</div>');
 }
 
-function copyResult(){
-  if(!lastParsed) return;
-  const p = lastParsed;
-  const qty = $('qtyInput') ? $('qtyInput').value : '';
+function copyResult(idx){
+  if(!lastParsedList.length) return;
+  const p = lastParsedList[idx];
+  if(!p) return;
+  const qty = $('qtyInput_'+idx) ? $('qtyInput_'+idx).value : '';
   let lines;
   if(p.kind==='window'){
     lines = [
@@ -514,9 +600,9 @@ function copyResult(){
 }
 function clearResult(){
   $('result').style.display='none';
-  $('preview').style.display='none';
+  $('cropWrap').style.display='none';
   $('txtInput').value='';
-  lastParsed=null;
+  lastParsedList=[];
 }
 
 const hist = [];
@@ -530,83 +616,252 @@ function addHistory(code){
 }
 function reparse(code){
   const p = parseAny(code);
-  if(p) render(p, null, '履歴');
+  if(p) render([p], [null], '履歴');
 }
 
 let debounce;
 $('txtInput').addEventListener('input', e=>{
   clearTimeout(debounce);
   debounce = setTimeout(()=>{
-    const p = parseAny(e.target.value);
-    if(p) render(p, findQty(e.target.value), 'テキスト入力');
+    const list = parseAllCodes(e.target.value);
+    if(list.length) render(list, findQtyForItems(e.target.value, list), 'テキスト入力');
   }, 350);
 });
 
-/* ===== OCR ===== */
+/* ===== OCR（トリミング＋2段階読み取り） ===== */
 $('btnCamera').onclick = ()=> $('fileCamera').click();
 $('btnFile').onclick   = ()=> $('fileGallery').click();
-$('fileCamera').addEventListener('change', e=> handleImage(e.target.files[0], 'カメラ'));
-$('fileGallery').addEventListener('change', e=> handleImage(e.target.files[0], '画像'));
+$('btnPdf').onclick    = ()=> $('filePdf').click();
+$('fileCamera').addEventListener('change', e=>{ loadForCrop(e.target.files[0]); e.target.value=''; });
+$('fileGallery').addEventListener('change', e=>{ loadForCrop(e.target.files[0]); e.target.value=''; });
+$('filePdf').addEventListener('change', e=>{ loadPdf(e.target.files[0]); e.target.value=''; });
 
-async function handleImage(file, label){
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+let pdfDoc=null, pdfPage=1, pdfPages=1;
+
+async function loadPdf(file){
+  if(!file) return;
+  $('cropWrap').style.display='block';
+  $('result').style.display='none';
+  $('progress').style.display='block';
+  $('progText').textContent = 'PDFを読み込み中…';
+  $('progBar').style.width='10%';
+  $('cropWrap').scrollIntoView({behavior:'smooth', block:'start'});
+  try{
+    const buf = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({
+      data: buf,
+      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/'
+    }).promise;
+    pdfPages = pdfDoc.numPages;
+    pdfPage = 1;
+    $('pageNav').style.display = pdfPages>1 ? 'flex' : 'none';
+    await renderPdfPage();
+  }catch(err){
+    $('progress').style.display='none';
+    $('result').innerHTML = '<div class="alert err" style="margin-top:4px">PDFの読み込みに失敗しました。<br><small>'+(err.message||err)+'</small></div>';
+    $('result').style.display='block';
+  }
+}
+async function renderPdfPage(){
+  const page = await pdfDoc.getPage(pdfPage);
+  const baseVp = page.getViewport({scale:1});
+  const scale = Math.min(3, 2000/baseVp.width);
+  const vp = page.getViewport({scale});
+  const c = document.createElement('canvas');
+  c.width = Math.ceil(vp.width);
+  c.height = Math.ceil(vp.height);
+  const cctx = c.getContext('2d');
+  cctx.fillStyle = '#FFFFFF';
+  cctx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:cctx, viewport:vp}).promise;
+
+  srcCanvas = c;
+  cvView.width = c.width;
+  cvView.height = c.height;
+  cropRect = null;
+  drawView();
+  $('btnOcrCrop').disabled = true;
+  $('pageLabel').textContent = pdfPage+' / '+pdfPages;
+  $('btnPrevPage').disabled = pdfPage<=1;
+  $('btnNextPage').disabled = pdfPage>=pdfPages;
+  $('progress').style.display='none';
+}
+$('btnPrevPage').onclick = ()=>{ if(pdfPage>1){ pdfPage--; renderPdfPage(); } };
+$('btnNextPage').onclick = ()=>{ if(pdfPage<pdfPages){ pdfPage++; renderPdfPage(); } };
+
+function loadForCrop(file){
   if(!file) return;
   const url = URL.createObjectURL(file);
   const img = new Image();
-  img.onload = async ()=>{
-    const scale = Math.min(2, 1800/Math.max(img.width,1));
-    const cv = document.createElement('canvas');
-    cv.width = Math.round(img.width*Math.max(scale,1));
-    cv.height = Math.round(img.height*Math.max(scale,1));
-    const ctx = cv.getContext('2d');
-    ctx.drawImage(img, 0, 0, cv.width, cv.height);
-    const d = ctx.getImageData(0,0,cv.width,cv.height);
-    const px = d.data;
-    for(let i=0;i<px.length;i+=4){
-      let g = 0.299*px[i]+0.587*px[i+1]+0.114*px[i+2];
-      g = Math.max(0, Math.min(255, (g-128)*1.35+128));
-      px[i]=px[i+1]=px[i+2]=g;
-    }
-    ctx.putImageData(d,0,0);
-
-    $('preview').src = cv.toDataURL('image/jpeg', .85);
-    $('preview').style.display='block';
-    $('progress').style.display='block';
-    $('progText').textContent = '読み取り準備中…（初回はデータ取得のため時間がかかります）';
-    $('progBar').style.width='5%';
-
-    try{
-      const useJpn = $('chkJpn').checked;
-      const lang = useJpn ? 'jpn+eng' : 'eng';
-      const worker = await Tesseract.createWorker(lang, 1, {
-        logger: m=>{
-          if(m.status==='recognizing text'){
-            $('progText').textContent = '読み取り中… '+Math.round(m.progress*100)+'%';
-            $('progBar').style.width = Math.round(m.progress*100)+'%';
-          }
-        }
-      });
-      if(!useJpn){
-        await worker.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789()-:*. ' });
-      }
-      const { data } = await worker.recognize(cv);
-      await worker.terminate();
-      $('progress').style.display='none';
-
-      const p = parseAny(data.text);
-      if(p){
-        render(p, findQty(data.text), label+' OCR');
-      }else{
-        $('result').innerHTML = '<div class="alert err" style="margin-top:4px">品番の形式を検出できませんでした。<br>・ラベル部分を大きく・正面から撮ってください<br>・明るい場所で影を避けてください<br>・下の欄に手入力もできます<br><br><small style="font-weight:400">OCR結果: '+(data.text.trim().slice(0,120)||'(なし)')+'</small></div>';
-        $('result').style.display='block';
-      }
-    }catch(err){
-      $('progress').style.display='none';
-      $('result').innerHTML = '<div class="alert err" style="margin-top:4px">OCRの起動に失敗しました。通信環境をご確認ください（初回はデータのダウンロードが必要です）。<br><small>'+(err.message||err)+'</small></div>';
-      $('result').style.display='block';
-    }
+  img.onload = ()=>{
+    const maxW = 2600;
+    const sc = Math.min(1, maxW/img.width);
+    srcCanvas = document.createElement('canvas');
+    srcCanvas.width = Math.round(img.width*sc);
+    srcCanvas.height = Math.round(img.height*sc);
+    srcCanvas.getContext('2d').drawImage(img,0,0,srcCanvas.width,srcCanvas.height);
+    cvView.width = srcCanvas.width;
+    cvView.height = srcCanvas.height;
+    cropRect=null;
+    drawView();
+    $('cropWrap').style.display='block';
+    $('btnOcrCrop').disabled = true;
+    $('result').style.display='none';
+    $('cropWrap').scrollIntoView({behavior:'smooth', block:'start'});
     URL.revokeObjectURL(url);
   };
   img.src = url;
+}
+function drawView(){
+  const ctx = cvView.getContext('2d');
+  ctx.drawImage(srcCanvas,0,0);
+  if(cropRect){
+    ctx.save();
+    ctx.fillStyle='rgba(27,27,31,.45)';
+    ctx.fillRect(0,0,cvView.width,cvView.height);
+    ctx.clearRect(cropRect.x,cropRect.y,cropRect.w,cropRect.h);
+    ctx.drawImage(srcCanvas,cropRect.x,cropRect.y,cropRect.w,cropRect.h,cropRect.x,cropRect.y,cropRect.w,cropRect.h);
+    ctx.strokeStyle='#E85D04';
+    ctx.lineWidth=Math.max(3,cvView.width/300);
+    ctx.strokeRect(cropRect.x,cropRect.y,cropRect.w,cropRect.h);
+    ctx.restore();
+  }
+}
+function evPos(e){
+  const r = cvView.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*(cvView.width/r.width), y:(e.clientY-r.top)*(cvView.height/r.height) };
+}
+cvView.addEventListener('pointerdown', e=>{
+  if(!srcCanvas) return;
+  e.preventDefault();
+  cvView.setPointerCapture(e.pointerId);
+  dragStart = evPos(e);
+  cropRect = {x:dragStart.x, y:dragStart.y, w:1, h:1};
+  drawView();
+});
+cvView.addEventListener('pointermove', e=>{
+  if(!dragStart) return;
+  e.preventDefault();
+  const p = evPos(e);
+  cropRect = {
+    x:Math.min(dragStart.x,p.x), y:Math.min(dragStart.y,p.y),
+    w:Math.abs(p.x-dragStart.x), h:Math.abs(p.y-dragStart.y)
+  };
+  drawView();
+});
+cvView.addEventListener('pointerup', e=>{
+  if(!dragStart) return;
+  dragStart=null;
+  if(cropRect && (cropRect.w<20 || cropRect.h<10)){ cropRect=null; drawView(); }
+  $('btnOcrCrop').disabled = !cropRect;
+});
+
+$('btnOcrCrop').onclick = ()=>{
+  if(!cropRect) return;
+  const c = document.createElement('canvas');
+  c.width = Math.round(cropRect.w);
+  c.height = Math.round(cropRect.h);
+  c.getContext('2d').drawImage(srcCanvas, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0,0,c.width,c.height);
+  runOCR(c, 'カメラ');
+};
+$('btnOcrFull').onclick = ()=>{ if(srcCanvas) runOCR(srcCanvas, 'カメラ'); };
+
+/* 前処理：拡大＋グレースケール（binarize=trueでOtsu二値化） */
+function preprocess(src, binarize){
+  const targetW = 2000;
+  const sc = Math.min(3, Math.max(1, targetW/src.width));
+  const c = document.createElement('canvas');
+  c.width = Math.round(src.width*sc);
+  c.height = Math.round(src.height*sc);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src,0,0,c.width,c.height);
+  const d = ctx.getImageData(0,0,c.width,c.height);
+  const px = d.data;
+  const hist = new Array(256).fill(0);
+  for(let i=0;i<px.length;i+=4){
+    const g = Math.round(0.299*px[i]+0.587*px[i+1]+0.114*px[i+2]);
+    px[i]=g; hist[g]++;
+  }
+  if(binarize){
+    // Otsu法でしきい値を求める
+    const total = px.length/4;
+    let sum=0; for(let t=0;t<256;t++) sum += t*hist[t];
+    let sumB=0, wB=0, maxVar=0, thr=128;
+    for(let t=0;t<256;t++){
+      wB += hist[t]; if(wB===0) continue;
+      const wF = total-wB; if(wF===0) break;
+      sumB += t*hist[t];
+      const mB = sumB/wB, mF = (sum-sumB)/wF;
+      const v = wB*wF*(mB-mF)*(mB-mF);
+      if(v>maxVar){ maxVar=v; thr=t; }
+    }
+    for(let i=0;i<px.length;i+=4){
+      const v = px[i] > thr ? 255 : 0;
+      px[i]=px[i+1]=px[i+2]=v;
+    }
+  }else{
+    for(let i=0;i<px.length;i+=4){
+      const v = Math.max(0, Math.min(255, (px[i]-128)*1.4+128));
+      px[i]=px[i+1]=px[i+2]=v;
+    }
+  }
+  ctx.putImageData(d,0,0);
+  return c;
+}
+
+async function ocrPass(canvas, useJpn){
+  const lang = useJpn ? 'jpn+eng' : 'eng';
+  const worker = await Tesseract.createWorker(lang, 1, {
+    logger: m=>{
+      if(m.status==='recognizing text'){
+        $('progText').textContent = '読み取り中… '+Math.round(m.progress*100)+'%';
+        $('progBar').style.width = Math.round(m.progress*100)+'%';
+      }
+    }
+  });
+  if(!useJpn){
+    await worker.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789()-:*. ' });
+  }
+  const { data } = await worker.recognize(canvas);
+  await worker.terminate();
+  return data.text || '';
+}
+
+async function runOCR(region, label){
+  $('progress').style.display='block';
+  $('progText').textContent = '読み取り準備中…（初回はデータ取得のため時間がかかります）';
+  $('progBar').style.width='5%';
+  try{
+    const useJpn = $('chkJpn').checked;
+    // パス1：二値化（印刷物に強い）
+    let text = await ocrPass(preprocess(region, true), useJpn);
+    let list = parseAllCodes(text);
+    // パス2：グレースケールのみ（影・グラデに強い）
+    if(!list.length){
+      $('progText').textContent = '別方式で再読み取り中…';
+      const text2 = await ocrPass(preprocess(region, false), useJpn);
+      const list2 = parseAllCodes(text2);
+      if(list2.length){ list = list2; text = text2; } else { text = text + '\n' + text2; }
+    }
+    $('progress').style.display='none';
+    if(list.length){
+      render(list, findQtyForItems(text, list), label+' OCR');
+    }else{
+      $('result').innerHTML = '<div class="alert err" style="margin-top:4px">品番の形式を検出できませんでした。<br>・✂で<b>品番の行だけ</b>を細長く囲んで再読み取りしてください（最も効果的）<br>・正面から・明るい場所で撮影してください<br>・下の欄に手入力もできます<br><br><small style="font-weight:400">OCR結果: '+(text.trim().slice(0,160)||'(なし)')+'</small></div>';
+      $('result').style.display='block';
+    }
+  }catch(err){
+    $('progress').style.display='none';
+    $('result').innerHTML = '<div class="alert err" style="margin-top:4px">OCRの起動に失敗しました。通信環境をご確認ください（初回はデータのダウンロードが必要です）。<br><small>'+(err.message||err)+'</small></div>';
+    $('result').style.display='block';
+  }
 }
 
 /* ===== 設定 ===== */
@@ -643,7 +898,10 @@ $('btnSaveMaps').onclick = ()=>{
   const ok = saveMaps();
   alert(ok ? '保存しました' : 'この環境ではブラウザ保存が使えないため、今回の起動中のみ有効です。「書き出し」でJSONを保存しておくことをおすすめします。');
   $('settings').style.display='none';
-  if(lastParsed){ const p=parseAny(lastParsed.raw); if(p) render(p,null,'再判定'); }
+  if(lastParsedList.length){
+    const qtys = lastParsedList.map((_,i)=>{ const el=$('qtyInput_'+i); return el && el.value ? {qty:el.value} : null; });
+    render(lastParsedList, qtys, '再判定');
+  }
 };
 $('btnResetMaps').onclick = ()=>{
   if(confirm('対応表を初期値に戻しますか？')){
