@@ -213,7 +213,7 @@ input[type=file]{display:none}
     </div>
     <div class="set-body">
       <label class="lang-opt">
-        <input type="checkbox" id="chkJpn">
+        <input type="checkbox" id="chkJpn" checked>
         <span>数量など日本語もOCRで読み取る<br><small style="color:var(--sub)">初回のみ日本語データを追加ダウンロードします</small></span>
       </label>
       <div id="mapBlocks"></div>
@@ -268,7 +268,7 @@ const DEFAULT_MAPS = {
   frameW:  {label:'窓：枠巾（mm→記号）', data:{ "90":"N", "110":"S", "160":"L" }},
   /* ---------- 建具 ---------- */
   doorSeries:{label:'建具：扉デザインシリーズ', data:{ "SD":"Standard", "TD":"Traditional", "AD":"Authentic", "MD":"Modern", "DD":"Design", "FD":"Flat", "ID":"Iron" }},
-  doorType: {label:'建具：建具種類（DW番号下2桁）', data:{ "31":"片開き戸（DW31）", "42":"アウトセット上吊片引き（DW42）" }},
+  doorType: {label:'建具：建具種類（DW番号下2桁）', data:{ "31":"片開き戸（DW31）", "33":"引き違い戸（DW33・推定）", "34":"三本引き戸／収納扉（DW34・推定）", "42":"アウトセット引き戸／片引き戸（DW42）" }},
   doorFrameW:{label:'建具：枠巾記号', data:{ "N":"90mm", "S":"110mm", "L":"160mm", "*":"未定" }},
   doorSizeType:{label:'建具：寸法接頭辞（推定）', data:{ "K":"開き戸 扉寸法（規格/特注共通）", "H":"引戸 扉寸法（推定）" }},
   doorH:   {label:'建具：扉高記号（推定）', data:{ "S":"2000mm" }},
@@ -475,7 +475,7 @@ function parseAllWindows(s){
    例1: (HF)SDD0731-K712S-LAW(2N2)L
    例2: (特)(H)A-ID10-H****-AB(1HN)R A-6(型ガラス)
 */
-const DOOR_RE_SRC = '(\\(\\s*特\\s*\\))?\\s*\\(?\\s*(HF|H|F)\\s*\\)?\\s*([A-Z])?\\s*-?\\s*(SD|TD|AD|MD|DD|FD|ID)\\s*-?\\s*(\\d{2})\\s*(\\d{2})?\\s*-\\s*([A-Z]?[\\d*OQI]{3,10}[A-Z]?)\\s*-\\s*([A-Z●*]{2,3})\\s*\\(\\s*([A-Z0-9*]{2,3})\\s*\\)\\s*([LR])?(?:[\\s\u3000]*\\(\\s*((?:特別色|L\\d+)[^)]*)\\s*\\))?(?:[\\s\u3000]*([AM]\\s*-\\s*\\d))?';
+const DOOR_RE_SRC = '(\\(\\s*特\\s*\\))?\\s*(?:\\(?\\s*(HF|H|F)\\s*\\)?\\s*)?([A-Z])?\\s*-?\\s*(SD|TD|AD|MD|DD|FD|ID)\\s*-?\\s*(\\d{2})\\s*(\\d{2})?\\s*-\\s*([A-Z]?[\\d*OQI]{3,10}[A-Z]?)\\s*-\\s*([A-Z●*]{2,3})\\s*\\(\\s*([A-Z0-9*]{2,3})\\s*\\)\\s*([LR])?(?:[\\s\u3000]*\\(\\s*((?:特別色|L\\d+)[^)]*)\\s*\\))?(?:[\\s\u3000]*([AM]\\s*-\\s*\\d))?';
 
 function buildDoorResult(m, s){
   const wf = m[8];
@@ -1296,7 +1296,11 @@ $('fileImport').addEventListener('change', e=>{
   };
   r.readAsText(f);
 });
-try{ if(localStorage.getItem('hinbanUseJpn')==='1') $('chkJpn').checked = true; }catch(e){}
+try{
+  const saved = localStorage.getItem('hinbanUseJpn');
+  if(saved==='0') $('chkJpn').checked = false;
+  else if(saved==='1') $('chkJpn').checked = true;
+}catch(e){}
 $('chkJpn').addEventListener('change', e=>{
   try{ localStorage.setItem('hinbanUseJpn', e.target.checked?'1':'0'); }catch(err){}
 });
