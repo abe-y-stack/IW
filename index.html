@@ -27,6 +27,16 @@ header{
 header h1{font-size:1.05rem;font-weight:700;letter-spacing:.06em}
 header .sub{font-size:.62rem;color:#B9B9BE;letter-spacing:.14em;margin-top:2px}
 #btnSettings{background:none;border:1.5px solid #55555C;color:#fff;border-radius:8px;padding:7px 12px;font-size:.8rem;cursor:pointer}
+#btnBatch{background:none;border:1.5px solid #55555C;color:#fff;border-radius:8px;padding:7px 12px;font-size:.8rem;cursor:pointer}
+#batchCount{display:inline-block;min-width:1.1em;font-weight:800}
+.continuous-toggle{display:flex;align-items:flex-start;gap:8px;font-size:.8rem;font-weight:700;background:#fff;border:1.5px solid #CFCEC8;border-radius:10px;padding:10px 12px;margin-bottom:10px;cursor:pointer}
+.continuous-toggle input{width:18px;height:18px;margin-top:1px;flex:none}
+#continuousBar{margin-bottom:14px}
+.batch-row{background:#fff;border:1.5px solid #CFCEC8;border-radius:10px;padding:9px 12px;margin-bottom:7px;font-size:.8rem}
+.batch-row-main{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.batch-row-main .mono{font-family:var(--mono);font-weight:700;word-break:break-all}
+.batch-tag{flex:none;font-size:.65rem;font-weight:800;background:var(--ink);color:#fff;padding:2px 8px;border-radius:999px}
+.batch-row-sub{color:var(--sub);font-size:.74rem;margin-top:4px}
 main{max-width:680px;margin:0 auto;padding:16px 14px}
 
 .inputs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
@@ -109,6 +119,10 @@ input[type=file]{display:none}
 .summary-chips{display:flex;flex-wrap:wrap;gap:8px}
 .summary-chip{display:flex;align-items:center;gap:7px;background:#2A2A30;border-radius:999px;padding:7px 13px;font-weight:800;font-size:.92rem}
 .summary-chip .sw{width:15px;height:15px;border-radius:50%;flex:none;border:1.5px solid #fff}
+.sort-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.sort-lbl{font-size:.72rem;font-weight:700;color:var(--sub);margin-right:2px}
+.sort-btn{padding:6px 12px;border:1.5px solid var(--ink);border-radius:999px;background:#fff;color:var(--ink);font-weight:700;font-size:.76rem;cursor:pointer}
+.sort-btn:active{background:var(--ink);color:#fff}
 
 #history{margin-top:22px}
 #history h2{font-size:.75rem;letter-spacing:.18em;color:var(--sub);margin-bottom:8px}
@@ -116,7 +130,7 @@ input[type=file]{display:none}
 .hist-item .c{font-family:var(--mono);font-weight:700;word-break:break-all}
 .hist-item .t{color:var(--sub);flex:none;font-size:.7rem}
 
-#settings{display:none;position:fixed;inset:0;background:rgba(27,27,31,.5);z-index:50;overflow-y:auto;padding:20px 12px 40px}
+#settings,#batchModal{display:none;position:fixed;inset:0;background:rgba(27,27,31,.5);z-index:50;overflow-y:auto;padding:20px 12px 40px}
 .set-panel{max-width:680px;margin:0 auto;background:var(--paper);border-radius:14px;border:2px solid var(--ink);overflow:hidden}
 .set-head{background:var(--ink);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:2}
 .set-head h2{font-size:1rem}
@@ -143,7 +157,10 @@ input[type=file]{display:none}
     <h1>品番リーダー</h1>
     <div class="sub">INTERIOR WINDOW ＋ 建具 ／ LOHAS material</div>
   </div>
-  <button id="btnSettings">⚙ 対応表</button>
+  <div style="display:flex;gap:8px">
+    <button id="btnBatch">📦 本日 <span id="batchCount">0</span></button>
+    <button id="btnSettings">⚙ 対応表</button>
+  </div>
 </header>
 
 <main>
@@ -151,6 +168,15 @@ input[type=file]{display:none}
     <button class="big-btn camera" id="btnCamera"><span class="ico">📷</span>カメラ</button>
     <button class="big-btn" id="btnFile"><span class="ico">🖼</span>画像</button>
     <button class="big-btn" id="btnPdf"><span class="ico">📄</span>PDF</button>
+  </div>
+  <label class="continuous-toggle">
+    <input type="checkbox" id="chkContinuous">
+    <span>🔁 連続スキャンモード（撮影するたびに一覧へ追加していく）</span>
+  </label>
+  <div id="continuousBar" style="display:none">
+    <button class="big-btn camera" id="btnContinuousShot" style="width:100%;flex-direction:row;gap:10px;padding:14px">
+      <span class="ico" style="font-size:1.3rem">📷</span>次を撮影する（<span id="continuousCount">0</span>件 追加済み）
+    </button>
   </div>
   <input type="file" id="fileCamera" accept="image/*" capture="environment">
   <input type="file" id="fileGallery" accept="image/*">
@@ -199,6 +225,25 @@ input[type=file]{display:none}
       </div>
       <input type="file" id="fileImport" accept=".json">
       <p class="set-note">※（推定）と付いている項目は、実際の見積書と照合して確定したらこの画面で修正してください。チームで揃えるときは「書き出し」したJSONを共有して各端末で「読み込み」してください。</p>
+    </div>
+  </div>
+</div>
+
+<div id="batchModal">
+  <div class="set-panel">
+    <div class="set-head">
+      <h2>📦 本日の出荷リスト</h2>
+      <button id="btnCloseBatch" class="mini-btn" style="flex:none;background:#fff">閉じる</button>
+    </div>
+    <div class="set-body">
+      <p class="set-note" style="margin-top:0">カードの「☐ 現物と一致を確認」を押すと、自動でここに追加されます。日付が変わると自動でリセットされます。</p>
+      <div id="batchSummary"></div>
+      <div id="batchList"></div>
+      <div class="set-actions">
+        <button class="mini-btn primary" id="btnBatchCSV">CSV書き出し</button>
+        <button class="mini-btn" id="btnBatchCopy">一括コピー</button>
+        <button class="mini-btn" id="btnBatchClear" style="grid-column:1/-1;color:var(--err);border-color:var(--err)">本日の出荷リストをクリア</button>
+      </div>
     </div>
   </div>
 </div>
@@ -264,6 +309,115 @@ function saveMaps(){
     localStorage.setItem('hinbanMaps_v2', JSON.stringify(out));
     return true;
   }catch(e){ return false; }
+}
+
+/* =====================================================
+   本日の出荷リスト（バッチ）
+   現物確認をONにしたアイテムを自動集計。日付が変わると自動リセット。
+===================================================== */
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function loadBatch(){
+  try{
+    const s = localStorage.getItem('hinbanBatch_v1');
+    if(s){
+      const obj = JSON.parse(s);
+      if(obj.date===todayStr()) return obj.items||[];
+    }
+  }catch(e){}
+  return [];
+}
+function saveBatch(){
+  try{ localStorage.setItem('hinbanBatch_v1', JSON.stringify({date:todayStr(), items:batch})); }catch(e){}
+}
+let batch = loadBatch();
+function buildBatchEntry(idx){
+  const p = lastParsedList[idx];
+  let colorCode=null, colorLabel='', cntLabel='', cnt='', total='';
+  if(p.kind==='window'){
+    colorCode = p.hwColor; colorLabel = look('hwColor',p.hwColor).text;
+    cntLabel = '個数/1台'; cnt = p._cnt||'';
+    const t = $('totalHw_'+idx); total = t?t.textContent:'';
+  }else{
+    const isHinged = p.doorType==='31' || (!p.doorType && !p.head);
+    colorCode = isHinged ? (p.hw3||p.hw1) : p.hw1;
+    colorLabel = colorCode ? look('hwColor',colorCode).text : '';
+    if(isHinged){ cntLabel='丁番本数/1枚'; cnt = p._hinge||''; const t=$('totalHinge_'+idx); total = t?t.textContent:''; }
+  }
+  return {
+    uid:p._uid, time:new Date().toLocaleString('ja-JP',{hour12:false}),
+    kind:p.kind, raw:p.raw, qty:p._qty||'', colorCode, colorLabel, cntLabel, cnt, total,
+    wood: p.wood?look('wood',p.wood).text:'',
+    spec: p.kind==='window' ? look('winType',p.winType).text : (look('doorSeries',p.series).text+' '+p.designNo)
+  };
+}
+function addToBatch(idx){
+  const entry = buildBatchEntry(idx);
+  const i = batch.findIndex(b=>b.uid===entry.uid);
+  if(i>=0) batch[i]=entry; else batch.push(entry);
+  saveBatch();
+}
+function removeFromBatch(uid){
+  batch = batch.filter(b=>b.uid!==uid);
+  saveBatch();
+}
+function updateBatchBadge(){
+  const el = $('batchCount');
+  if(el) el.textContent = batch.length;
+  const cc = $('continuousCount');
+  if(cc) cc.textContent = lastParsedList.length;
+}
+function csvEscape(v){
+  v = String(v==null?'':v);
+  if(/[",\n]/.test(v)) return '"'+v.replace(/"/g,'""')+'"';
+  return v;
+}
+function renderBatchModal(){
+  const buckets = {};
+  batch.forEach(b=>{
+    if(!b.colorCode) return;
+    if(!buckets[b.colorCode]) buckets[b.colorCode] = {label:b.colorLabel, total:0};
+    buckets[b.colorCode].total += parseFloat(b.total)||0;
+  });
+  const keys = Object.keys(buckets);
+  const chips = keys.map(k=>{
+    const sw = SWATCH[k] ? '<span class="sw" style="background:'+SWATCH[k]+'"></span>' : '';
+    return '<span class="summary-chip">'+sw+buckets[k].label+' × '+buckets[k].total+'</span>';
+  }).join('');
+  $('batchSummary').innerHTML = batch.length
+    ? '<div class="summary-box" style="margin-bottom:16px"><h4>🔧 本日の金物 出庫合計（'+batch.length+'件）</h4><div class="summary-chips">'+(chips||'<span style="opacity:.7;font-size:.85rem">色情報なし</span>')+'</div></div>'
+    : '<p style="color:var(--sub);font-size:.85rem">まだ確認済みの商品がありません。カードの「現物と一致を確認」を押すと、ここに自動で追加されます。</p>';
+  $('batchList').innerHTML = batch.slice().reverse().map(b=>
+    '<div class="batch-row"><div class="batch-row-main"><span class="mono">'+b.raw+'</span><span class="batch-tag">'+(b.kind==='window'?'室内窓':'建具')+'</span></div>'+
+    '<div class="batch-row-sub">数量 '+(b.qty||'－')+' ／ '+(b.colorLabel||'－')+(b.cntLabel?(' ／ '+b.cntLabel+':'+b.cnt+' → 合計'+(b.total||'－')):'')+' ／ '+b.time+'</div></div>'
+  ).join('');
+}
+function exportBatchCSV(){
+  if(!batch.length){ alert('本日の出荷リストはまだ空です。'); return; }
+  const header = ['確認時刻','種別','品番','数量','金物色','個数区分','個数/1台(または丁番本数)','出庫合計','樹種','仕様'];
+  const rows = batch.map(b=>[b.time, b.kind==='window'?'室内窓':'建具', b.raw, b.qty, b.colorLabel, b.cntLabel, b.cnt, b.total, b.wood, b.spec]);
+  const csv = '\uFEFF'+[header].concat(rows).map(r=>r.map(csvEscape).join(',')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '出荷リスト_'+todayStr()+'.csv';
+  a.click();
+}
+function copyBatchAll(){
+  if(!batch.length){ alert('本日の出荷リストはまだ空です。'); return; }
+  const lines = batch.map(b=>
+    '['+b.time+'] '+(b.kind==='window'?'室内窓':'建具')+' '+b.raw+' ／ 数量:'+(b.qty||'－')+' ／ 金物:'+(b.colorLabel||'－')+(b.cntLabel?(' ／ '+b.cntLabel+':'+b.cnt+' → 合計'+(b.total||'－')):'')
+  );
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>alert('コピーしました'));
+}
+function clearBatch(){
+  if(!confirm('本日の出荷リストをすべて削除しますか？この操作は取り消せません。')) return;
+  batch = [];
+  saveBatch();
+  renderBatchModal();
+  updateBatchBadge();
 }
 
 /* =====================================================
@@ -455,29 +609,81 @@ function swatchDot(code){
   return SWATCH[code] ? '<span class="sw" style="background:'+SWATCH[code]+'"></span>' : '';
 }
 let lastParsedList = [];
-let confirmedState = {};
+let uidSeq = 0;
 
 function collectUnknowns(checks){
   return checks.filter(([k,c])=> c && !look(k,c).known).map(([k,c])=>MAPS[k].label.replace(/^(窓|建具)：/,'')+':'+c);
 }
 
+/* リストを丸ごと表示する。すでに_uidを持つアイテム（並び替え・連続スキャンで再利用された既存オブジェクト）は
+   数量・個数・確認状態を保持したまま、初めて見るアイテムだけ初期値を割り当てる */
 function render(list, qtyList, sourceLabel){
   if(!Array.isArray(list)) list = [list];
-  if(!Array.isArray(qtyList)) qtyList = [qtyList];
+  if(qtyList && !Array.isArray(qtyList)) qtyList = [qtyList];
   lastParsedList = list;
-  confirmedState = {};
+  list.forEach((p,i)=>{
+    if(p._uid===undefined){
+      p._uid = 'u'+(uidSeq++);
+      p._origIdx = uidSeq;
+      const qi = qtyList ? qtyList[i] : null;
+      p._qty = qi ? qi.qty : '';
+      p._qtyLoose = !!(qi && qi.loose);
+      p._confirmed = false;
+      if(p.kind==='window'){
+        p._cnt = defaultWinCount(p);
+      }else{
+        const isHinged = p.doorType==='31' || (!p.doorType && !p.head);
+        if(isHinged) p._hinge = defaultHingeCount(p);
+      }
+      addHistory(p.raw);
+    }
+  });
   const cards = list.map((p,i)=> p.kind==='window'
-    ? renderWindowCard(p, qtyList[i], i, list.length)
-    : renderDoorCard(p, qtyList[i], i, list.length)
+    ? renderWindowCard(p, i, list.length)
+    : renderDoorCard(p, i, list.length)
   ).join('');
   const headerNote = list.length>1
-    ? '<div style="font-size:.78rem;font-weight:700;color:var(--sub);margin:2px 2px 10px">📦 '+list.length+'件の品番を検出しました</div>'
+    ? '<div style="font-size:.78rem;font-weight:700;color:var(--sub);margin:2px 2px 6px">📦 '+list.length+'件の品番を検出しました</div>'
     : '';
-  $('result').innerHTML = headerNote + '<div id="hwSummary"></div>' + cards;
+  const sortBar = list.length>1
+    ? '<div class="sort-bar"><span class="sort-lbl">並び替え</span>'+
+      '<button class="sort-btn" onclick="sortItems(\'detected\')">検出順</button>'+
+      '<button class="sort-btn" onclick="sortItems(\'color\')">金物色順</button>'+
+      '<button class="sort-btn" onclick="sortItems(\'kind\')">種類順（窓/建具）</button>'+
+      '<button class="sort-btn" onclick="sortItems(\'qtyDesc\')">数量が多い順</button>'+
+      '</div>'
+    : '';
+  $('result').innerHTML = headerNote + sortBar + '<div id="hwSummary"></div>' + cards;
   $('result').style.display='block';
   $('result').scrollIntoView({behavior:'smooth', block:'start'});
-  list.forEach(p=>addHistory(p.raw));
   recomputeAll();
+}
+/* 連続スキャン用：既存の一覧の末尾に新しい検出結果を追加する（既存アイテムの状態はそのまま） */
+function appendScan(newList, newQtyList){
+  const combined = lastParsedList.concat(newList);
+  render(combined, lastParsedList.map(()=>null).concat(newQtyList||newList.map(()=>null)), '連続スキャン');
+}
+function sortItems(criterion){
+  if(lastParsedList.length<2) return;
+  const arr = lastParsedList.slice();
+  arr.sort((a,b)=>{
+    if(criterion==='color'){
+      const ca = a.kind==='window' ? a.hwColor : (a.hw3||a.hw1||'');
+      const cb = b.kind==='window' ? b.hwColor : (b.hw3||b.hw1||'');
+      if(ca!==cb) return String(ca).localeCompare(String(cb));
+      return (a._origIdx||0)-(b._origIdx||0);
+    }
+    if(criterion==='kind'){
+      if(a.kind!==b.kind) return a.kind==='window' ? -1 : 1;
+      return (a._origIdx||0)-(b._origIdx||0);
+    }
+    if(criterion==='qtyDesc'){
+      const d = (parseFloat(b._qty)||0)-(parseFloat(a._qty)||0);
+      return d!==0 ? d : (a._origIdx||0)-(b._origIdx||0);
+    }
+    return (a._origIdx||0)-(b._origIdx||0);
+  });
+  render(arr, null, '並び替え');
 }
 
 function alertsHTML(alerts){
@@ -486,12 +692,11 @@ function alertsHTML(alerts){
 function footHTML(idx){
   return '<div class="tag-foot"><button class="mini-btn" onclick="copyResult('+idx+')">📋 結果をコピー</button><button class="mini-btn" onclick="clearResult()">✕ クリア</button></div>';
 }
-function qtyCell(qtyInfo, idx){
-  const q = qtyInfo?qtyInfo.qty:'';
-  const caption = qtyInfo ? (qtyInfo.loose ? '数量欄から自動推定（要確認）' : 'ラベルから読み取り') : 'ラベルの数量を入力';
+function qtyCell(p, idx){
+  const caption = p._qty ? (p._qtyLoose ? '数量欄から自動推定（要確認）' : 'ラベルから読み取り') : 'ラベルの数量を入力';
   return '<div class="hero-cell"><div class="k">数量</div>'+
-    '<div class="hero-qty"><input id="qtyInput_'+idx+'" value="'+q+'" inputmode="numeric" placeholder="－" oninput="recomputeAll()"></div>'+
-    '<div style="font-size:.65rem;color:'+(qtyInfo&&qtyInfo.loose?'var(--warn)':'var(--sub)')+';margin-top:2px">'+caption+'</div></div>';
+    '<div class="hero-qty"><input id="qtyInput_'+idx+'" value="'+(p._qty||'')+'" inputmode="numeric" placeholder="－" oninput="lastParsedList['+idx+']._qty=this.value;recomputeAll()"></div>'+
+    '<div style="font-size:.65rem;color:'+(p._qtyLoose?'var(--warn)':'var(--sub)')+';margin-top:2px">'+caption+'</div></div>';
 }
 function defaultWinCount(p){
   return (MAPS.hwCount && MAPS.hwCount.data[p.winType]) || '1';
@@ -519,7 +724,7 @@ function recomputeAll(){
   const buckets = {};
   let confirmedCount = 0;
   lastParsedList.forEach((p,i)=>{
-    if(confirmedState[i]) confirmedCount++;
+    if(p._confirmed) confirmedCount++;
     const qtyEl = $('qtyInput_'+i);
     const qty = qtyEl ? (parseFloat(qtyEl.value)||0) : 0;
     if(p.kind==='window'){
@@ -555,23 +760,28 @@ function recomputeAll(){
   el.innerHTML = '<div class="summary-box"><h4>🔧 金物 出庫合計（現在の入力値ベース）'+(total>1?' ／ 現物確認 '+confirmedCount+' / '+total+'件':'')+'</h4><div class="summary-chips">'+chips+'</div></div>';
 }
 function toggleConfirm(idx){
-  confirmedState[idx] = !confirmedState[idx];
+  const p = lastParsedList[idx];
+  if(!p) return;
+  p._confirmed = !p._confirmed;
   const btn = $('confirmBtn_'+idx);
   const card = $('card_'+idx);
-  if(confirmedState[idx]){
+  if(p._confirmed){
     btn.textContent = '✓ 確認済み';
     btn.classList.add('confirmed');
     if(card) card.classList.add('card-confirmed');
+    addToBatch(idx);
   }else{
     btn.textContent = '☐ 現物と一致を確認';
     btn.classList.remove('confirmed');
     if(card) card.classList.remove('card-confirmed');
+    removeFromBatch(p._uid);
   }
   recomputeAll();
+  updateBatchBadge();
 }
 
 /* ---- 窓カード ---- */
-function renderWindowCard(p, qtyInfo, idx, total){
+function renderWindowCard(p, idx, total){
   const alerts = [];
   const hw = look('hwColor', p.hwColor);
   const allowed = HW_ALLOWED[p.winType];
@@ -591,14 +801,14 @@ function renderWindowCard(p, qtyInfo, idx, total){
   '<div class="tag-card" id="card_'+idx+'" style="margin-bottom:16px">'+
     '<div class="tag-head"><span class="lbl">SHIPPING CHECK</span><span style="display:flex;gap:6px">'+badge+'<span class="type-badge">室内窓'+(p.tokFlag?'・特注':'')+'</span></span></div>'+
     '<div class="tag-code">'+p.raw+'</div>'+
-    '<div class="hero-row">'+qtyCell(qtyInfo, idx)+
+    '<div class="hero-row">'+qtyCell(p, idx)+
       '<div class="hero-cell"><div class="k">金物</div>'+
         '<div class="hw-chip"><span class="hw-swatch" style="background:'+(SWATCH[p.hwColor]||'#999')+'"></span>'+hw.text+'</div>'+
         '<div style="font-size:.72rem;color:var(--sub);margin-top:5px">'+look('hwType',p.hwType).text+'<span class="code" style="font-family:var(--mono)">（'+p.hwColor+p.hwType+'）</span></div>'+
       '</div>'+
     '</div>'+
     '<div class="hwcalc-row">'+
-      '<span>個数/1台</span><input class="cnt-input" id="cntInput_'+idx+'" value="'+defaultWinCount(p)+'" inputmode="numeric" oninput="recomputeAll()">'+
+      '<span>個数/1台</span><input class="cnt-input" id="cntInput_'+idx+'" value="'+p._cnt+'" inputmode="numeric" oninput="lastParsedList['+idx+']._cnt=this.value;recomputeAll()">'+
       '<span>× 数量 = <span class="total" id="totalHw_'+idx+'">－</span> 個</span>'+
       '<button class="confirm-btn" id="confirmBtn_'+idx+'" onclick="toggleConfirm('+idx+')" style="margin-left:auto">☐ 現物と一致を確認</button>'+
     '</div>'+
@@ -617,7 +827,7 @@ function renderWindowCard(p, qtyInfo, idx, total){
 }
 
 /* ---- 建具カード ---- */
-function renderDoorCard(p, qtyInfo, idx, total){
+function renderDoorCard(p, idx, total){
   const alerts = [];
   const isHinged = p.doorType==='31' || (!p.doorType && !p.head); // 片開き系
   const hwLabels = isHinged ? ['レバー','表示錠','丁番'] : ['引き手・レバー','金物②','金物③'];
@@ -657,7 +867,7 @@ function renderDoorCard(p, qtyInfo, idx, total){
   const badge = total>1 ? '<span class="type-badge" style="background:#444">No.'+(idx+1)+'/'+total+'</span>' : '';
   const calcRow = isHinged
     ? '<div class="hwcalc-row">'+
-        '<span>丁番 本数/1枚</span><input class="cnt-input" id="hingeCnt_'+idx+'" value="'+defaultHingeCount(p)+'" inputmode="numeric" oninput="recomputeAll()">'+
+        '<span>丁番 本数/1枚</span><input class="cnt-input" id="hingeCnt_'+idx+'" value="'+p._hinge+'" inputmode="numeric" oninput="lastParsedList['+idx+']._hinge=this.value;recomputeAll()">'+
         '<span>× 数量 = <span class="total" id="totalHinge_'+idx+'">－</span> 本</span>'+
         '<button class="confirm-btn" id="confirmBtn_'+idx+'" onclick="toggleConfirm('+idx+')" style="margin-left:auto">☐ 現物と一致を確認</button>'+
       '</div>'
@@ -667,7 +877,7 @@ function renderDoorCard(p, qtyInfo, idx, total){
   '<div class="tag-card" id="card_'+idx+'" style="margin-bottom:16px">'+
     '<div class="tag-head"><span class="lbl">SHIPPING CHECK</span><span style="display:flex;gap:6px">'+badge+'<span class="type-badge" style="background:#1E5F8F">建具'+(p.tokFlag?'・特注':'')+'</span></span></div>'+
     '<div class="tag-code">'+p.raw+'</div>'+
-    '<div class="hero-row">'+qtyCell(qtyInfo, idx)+
+    '<div class="hero-row">'+qtyCell(p, idx)+
       '<div class="hero-cell"><div class="k">吊元・勝手</div>'+
         '<div class="hero-big" style="color:'+(p.handNote?'var(--err)':(p.hand?'var(--ink)':'var(--sub)'))+'">'+handTxt+'</div>'+
         '<div style="font-size:.68rem;color:var(--sub);margin-top:3px">左右間違い注意</div>'+
@@ -699,7 +909,7 @@ function copyResult(idx){
   const p = lastParsedList[idx];
   if(!p) return;
   const qty = $('qtyInput_'+idx) ? $('qtyInput_'+idx).value : '';
-  const confirmTxt = '現物確認: '+(confirmedState[idx]?'済み':'未確認');
+  const confirmTxt = '現物確認: '+(p._confirmed?'済み':'未確認');
   let lines;
   if(p.kind==='window'){
     const cnt = $('cntInput_'+idx) ? $('cntInput_'+idx).value : '';
@@ -737,7 +947,6 @@ function clearResult(){
   $('cropWrap').style.display='none';
   $('txtInput').value='';
   lastParsedList=[];
-  confirmedState={};
 }
 
 const hist = [];
@@ -989,7 +1198,13 @@ async function runOCR(region, label){
     }
     $('progress').style.display='none';
     if(list.length){
-      render(list, findQtyForItems(text, list), label+' OCR');
+      const qtyList = findQtyForItems(text, list);
+      if($('chkContinuous').checked && lastParsedList.length){
+        appendScan(list, qtyList);
+      }else{
+        render(list, qtyList, label+' OCR');
+      }
+      updateBatchBadge();
     }else{
       $('result').innerHTML = '<div class="alert err" style="margin-top:4px">品番の形式を検出できませんでした。<br>・✂で<b>品番の行だけ</b>を細長く囲んで再読み取りしてください（最も効果的）<br>・正面から・明るい場所で撮影してください<br>・下の欄に手入力もできます<br><br><small style="font-weight:400">OCR結果: '+(text.trim().slice(0,160)||'(なし)')+'</small></div>';
       $('result').style.display='block';
@@ -1004,6 +1219,18 @@ async function runOCR(region, label){
 /* ===== 設定 ===== */
 $('btnSettings').onclick = ()=>{ buildSettings(); $('settings').style.display='block'; };
 $('btnCloseSettings').onclick = ()=> $('settings').style.display='none';
+$('btnBatch').onclick = ()=>{ renderBatchModal(); $('batchModal').style.display='block'; };
+$('btnCloseBatch').onclick = ()=> $('batchModal').style.display='none';
+$('batchModal').addEventListener('click', e=>{ if(e.target.id==='batchModal') $('batchModal').style.display='none'; });
+$('btnBatchCSV').onclick = exportBatchCSV;
+$('btnBatchCopy').onclick = copyBatchAll;
+$('btnBatchClear').onclick = clearBatch;
+updateBatchBadge();
+$('chkContinuous').addEventListener('change', e=>{
+  $('continuousBar').style.display = e.target.checked ? 'block' : 'none';
+  updateBatchBadge();
+});
+$('btnContinuousShot').onclick = ()=> $('fileCamera').click();
 $('settings').addEventListener('click', e=>{ if(e.target.id==='settings') $('settings').style.display='none'; });
 
 function buildSettings(){
@@ -1036,8 +1263,7 @@ $('btnSaveMaps').onclick = ()=>{
   alert(ok ? '保存しました' : 'この環境ではブラウザ保存が使えないため、今回の起動中のみ有効です。「書き出し」でJSONを保存しておくことをおすすめします。');
   $('settings').style.display='none';
   if(lastParsedList.length){
-    const qtys = lastParsedList.map((_,i)=>{ const el=$('qtyInput_'+i); return el && el.value ? {qty:el.value} : null; });
-    render(lastParsedList, qtys, '再判定');
+    render(lastParsedList.slice(), null, '再判定');
   }
 };
 $('btnResetMaps').onclick = ()=>{
